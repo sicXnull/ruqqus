@@ -11217,6 +11217,7 @@ ol > li::before {
   color: #898EA2;
   font-size: 13px;
   font-weight: 600;
+  padding-top: 0;
 }
 
 .post-nav > .nav-item > .nav-link.active {
@@ -11226,6 +11227,10 @@ ol > li::before {
 
 .post-nav .nav-link:hover, .nav-link:focus {
   color: #F45D01;
+}
+
+.post-nav .nav-item:last-child .nav-link {
+  padding-right: 0;
 }
 
 .form-control {
@@ -11241,8 +11246,20 @@ label {
   color: #757a84;
 }
 
+label.terms {
+  font-weight: normal;
+  text-transform: none;
+  font-size: 13px;
+  color: #344055;
+  vertical-align: middle;
+}
+
 .user-profile > .dropdown-toggle::after {
   display: none;
+}
+
+.sidebar-section .fa, .sidebar-section .fas {
+  font-size: 13px;
 }
 
 .icon::before {
@@ -11355,8 +11372,8 @@ label {
 }
 
 .sidebar {
-  -ms-flex: 0 0 300px;
-  flex: 0 0 300px;
+  -ms-flex: 0 0 250px;
+  flex: 0 0 250px;
   padding-left: 0rem;
   padding-right: 0rem;
 }
@@ -11380,6 +11397,20 @@ label {
   background-color: #fff;
   border-radius: 0.25rem;
   border: 1px solid #E0E4E9;
+}
+
+.sidebar-section.sidebar-trending .hashtag {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e0e4e9;
+  padding-bottom: 0.25rem;
+  color: #1486fb;
+  font-weight: bold;
+}
+
+.sidebar-section.sidebar-alert {
+  color: #fff;
+  background-color: #1486fb;
+  border: none;
 }
 
 .user-count {
@@ -11418,6 +11449,10 @@ label {
   border-radius: 50rem;
 }
 
+.post-title {
+  margin-bottom: 0;
+}
+
 .post-title a {
   color: #344055;
 }
@@ -11432,7 +11467,6 @@ label {
   z-index: 2;
   color: #6c757d;
   font-size: 13px;
-  margin-bottom: 0.5rem;
   width: fit-content;
 }
 
@@ -11441,8 +11475,11 @@ label {
   z-index: 2;
   font-weight: 600;
   font-size: 13px;
-  margin-bottom: 0;
   width: fit-content;
+}
+
+.post-actions .list-inline {
+  margin-bottom: 0;
 }
 
 .post-actions a {
@@ -11455,8 +11492,8 @@ label {
 }
 
 .post-img {
-  width: 130px;
-  height: 90px;
+  width: 145px;
+  height: 100px;
   object-fit: cover;
 }
 
@@ -11709,6 +11746,7 @@ ul.comment-section {
   background-size: cover;
   background-position: bottom;
   object-fit: cover;
+  background-image: url(https://imgur.com/Jsjqy7a.jpg);
 }
 
 .splash-text {
