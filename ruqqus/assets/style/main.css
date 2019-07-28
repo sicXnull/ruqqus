@@ -11147,23 +11147,18 @@ a.dropdown-toggle:hover {
 
 ol > li {
   list-style-type: none;
-  counter-increment: circle-count;
+  counter-increment: count;
   margin-bottom: 0.75rem;
 }
 
 ol > li::before {
-  content: counter(circle-count) " ";
+  content: counter(count) " ";
   position: relative;
   top: -1px;
-  width: 1.5rem;
-  height: 1.5rem;
   display: inline-block;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.5rem;
   color: #1486fb;
-  background-color: rgba(60, 173, 243, 0.15);
-  border-radius: 50%;
   text-align: center;
   margin-right: 0.5rem;
 }
@@ -11197,8 +11192,14 @@ ol > li::before {
   font-weight: 600;
 }
 
+.subnavbar {
+  z-index: 2;
+  margin-top: 64px;
+  background-color: #fff;
+}
+
 .navbar-light .navbar-nav .nav-link {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .navbar-light .navbar-nav .btn-primary.nav-link {
@@ -11214,7 +11215,7 @@ ol > li::before {
 }
 
 .post-nav .nav-link {
-  color: #898EA2;
+  color: #757a84;
   font-size: 13px;
   font-weight: 600;
   padding-top: 0;
@@ -11234,7 +11235,7 @@ ol > li::before {
 }
 
 .form-control {
-  color: #898EA2;
+  color: #757a84;
   border-color: #E0E4E9;
 }
 
@@ -11282,19 +11283,19 @@ label.terms {
 }
 
 .fa-bold:hover {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .fa-italic:hover {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .fa-quote-right:hover {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .fa-link:hover {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .voting {
@@ -11383,16 +11384,17 @@ label.terms {
 }
 
 .sidebar .sidebar-section .title {
-  font-size: 12px;
-  letter-spacing: 0.5px;
+  font-size: 14px;
   font-weight: 600;
-  color: #6c757d;
-  text-transform: uppercase;
-  margin-bottom: 1rem;
+  color: #344055;
+  padding: 0.75rem 1rem 0;
+}
+
+.sidebar .sidebar-section .body {
+  padding: 1rem;
 }
 
 .sidebar-section {
-  padding: 1rem;
   margin-bottom: 1rem;
   background-color: #fff;
   border-radius: 0.25rem;
@@ -11401,7 +11403,6 @@ label.terms {
 
 .sidebar-section.sidebar-trending .hashtag {
   margin-bottom: 0.5rem;
-  border-bottom: 1px solid #e0e4e9;
   padding-bottom: 0.25rem;
   color: #1486fb;
   font-weight: bold;
@@ -11465,7 +11466,7 @@ label.terms {
 .post-meta {
   position: relative;
   z-index: 2;
-  color: #6c757d;
+  color: #757a84;
   font-size: 13px;
   width: fit-content;
 }
@@ -11473,21 +11474,45 @@ label.terms {
 .post-actions {
   position: relative;
   z-index: 2;
-  font-weight: 600;
+  color: #757a84;
+  font-weight: 400;
   font-size: 13px;
   width: fit-content;
+}
+
+.post-actions .fa, .post-actions .fas {
+  font-size: 12px;
+  color: #6c757d;
+  margin-right: 0.5rem;
+}
+
+.post-actions a:hover .fa, .post-actions a:hover .fas {
+  color: #344055;
+}
+
+.post-actions .fas.fa-ellipsis-h {
+  font-size: 1.25rem;
+  vertical-align: bottom;
 }
 
 .post-actions .list-inline {
   margin-bottom: 0;
 }
 
+.post-actions .list-inline .list-inline-item {
+  margin-right: 1rem;
+}
+
+.post-actions .list-inline .list-inline-item .dropdown-item {
+  font-size: 13px;
+}
+
 .post-actions a {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .post-actions a:hover, a:active, a:focus {
-  color: #1486fb;
+  color: #344055;
   text-decoration: none;
 }
 
@@ -11556,7 +11581,7 @@ label.terms {
 }
 
 .comment-actions a {
-  color: #898EA2;
+  color: #757a84;
 }
 
 .comment-actions a:hover, a:active, a:focus {
@@ -11737,7 +11762,8 @@ ul.comment-section {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(127, 127, 127, 0.35);
+  opacity: 0.15;
+  background-color: #344055;
 }
 
 .splash-img {
@@ -11746,7 +11772,6 @@ ul.comment-section {
   background-size: cover;
   background-position: bottom;
   object-fit: cover;
-  background-image: url(https://imgur.com/Jsjqy7a.jpg);
 }
 
 .splash-text {
