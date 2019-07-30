@@ -11319,6 +11319,10 @@ label {
   color: #1486fb !important;
 }
 
+.score {
+  color: #E0E4E9 !important;
+}
+
 .border-1 {
   border-width: 1px;
   border-style: solid;
