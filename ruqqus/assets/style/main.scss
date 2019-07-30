@@ -147,7 +147,7 @@ ol > li::before {
 }
 
 .navbar-brand, .navbar-light .navbar-brand {
-    color: $blue;
+    color: $primary;
     font-weight: $font-weight-bold;
 }
 
@@ -265,14 +265,6 @@ label {
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
   border-top: 10px solid $gray-300;
-}
-
-.upvoted {
-    color: $upvote;
-}
-
-.downvoted {
-    color: $downvote;
 }
 
 .upvoted .arrow-up {
