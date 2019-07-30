@@ -187,11 +187,16 @@ RETURNS NULL ON NULL INPUT;
 
 c.execute("""
 CREATE OR REPLACE FUNCTION energy(users)
-RETURNS numeric AS '
-  SELECT SUM(submissions.score)
-  FROM submissions
-  WHERE submissions.author_id=$1.id
-    AND submissions.is_banned=false
+RETURNS int AS '
+  CAST(
+    (
+      SELECT SUM(submissions.score)
+      FROM submissions
+      WHERE submissions.author_id=$1.id
+        AND submissions.is_banned=false
+    )
+    AS int
+  )
 '
 LANGUAGE SQL
 IMMUTABLE
