@@ -183,6 +183,20 @@ IMMUTABLE
 RETURNS NULL ON NULL INPUT;
 """)
 
+#===========USERS=============
+
+c.execute("""
+CREATE OR REPLACE FUNCTION energy(users)
+RETURNS bigint AS '
+  SELECT SUM(submissions.score)
+  FROM submissions
+  WHERE submissions.author_id=$1.id
+'
+LANGUAGE SQL
+IMMUTABLE
+RETURNS NULL ON NULL INPUT
+""")
+
 
 #==========RANDOM IMAGE SPLASH SELECTION=========
 
