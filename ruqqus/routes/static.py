@@ -79,7 +79,7 @@ def my_info(v):
 @app.route("/notifications", methods=["GET"])
 @auth_required
 def notifications(v):
-    return v.notifications_unread(page=request.args.get("page"))
+    return v.notifications_unread(page=request.args.get("page","1"))
 
 @app.route("/submit", methods=["GET"])
 @is_not_banned
