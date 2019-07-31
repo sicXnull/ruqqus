@@ -228,7 +228,7 @@ class User(Base):
 
         page=int(page)
 
-        notifications = db.query(text("comments")
+        notifications = db.query("Comment"
                                  ).filter_by(parent_author_id=self.id,
                                              read=False
                                              ).order_by(text("comments.created_utc DESC")
