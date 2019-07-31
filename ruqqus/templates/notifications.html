@@ -1,0 +1,54 @@
+{% extends "default.html" %}
+
+{% block title %}
+<title>{{ p.title }}</title>
+<meta name="description" content="{{ p.title }}">
+{% endblock %}
+
+{% block sidebarblock %}
+<div class="sidebar-section sidebar-submission">
+  <div class="input-group align-items-center text-small">
+    <div class="pr-2">shortlink:</div><input type="text" readonly="readonly" value="https://ruqq.us/{{ p.base36id }}">
+  </div>
+</div>
+{% endblock %}
+
+{% block adminscripts %}
+<script src="/assets/js/comment_modding.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{% set score=p.score_fuzzed %}
+{% if v %}
+{% set voted=v.vote_status_on_post(p) %}
+{% set adjust=voted %}
+{% else %}
+{% set voted=-2 %}
+{% set adjust=0 %}
+{% endif %}
+
+<div class="container">
+        <div class="row justify-content-around mx-lg-5">
+
+            <div class="col bg-white border rounded py-3">
+
+                <div id="post-{{ p.base36id }}" class="row text-center mb-5{% if voted==1 %} upvoted{% elif voted==-1 %} downvoted{% endif %}">
+
+                    <div class="col-12">
+
+                        <div class="comment-section">
+
+				{% for c in notifications %}
+					{{ c.rendered_comment(v=v, render_replies=False) | safe }}
+				{% endfor %}
+                            
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+	</div>
+</div>
+
+{% endblock %}
