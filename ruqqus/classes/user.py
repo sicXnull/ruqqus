@@ -229,8 +229,8 @@ class User(Base):
         page=int(page)
 
         notifications = db.query(text("comments")
-                                 ).filter_by(comments.parent_author_id=self.id,
-                                             comments.read=False
+                                 ).filter_by(parent_author_id=self.id,
+                                             read=False
                                              ).order_by(text("comments.created_utc DESC")
                                                         ).offset(25*(page-1)).limit(25)
         for c in notifications:
