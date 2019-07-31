@@ -230,8 +230,10 @@ class User(Base):
 
         notifications = db.query("Comment"
                                  ).filter_by(text(f"parent_author_id={self.id}, read=False"
-                                             ).order_by(text("comments.created_utc DESC")
-                                                        ).offset(25*(page-1)).limit(25).all()
+                                             )).order_by(text("comments.created_utc DESC")
+                                                        ).offset(25*(page-1)).limit(25).all()=
+
+                                             
         for c in notifications:
             c.read=True
             db.add(c)
