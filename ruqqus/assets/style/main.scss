@@ -1,37 +1,11 @@
-// Colors
-
-$primary: #6d3eb7;
-$dark: #363254;
-$secondary: #7D8CC4;
-$danger: #F45D01;
-$white: #ffffff;
-
-
-$purple: #6d3eb7;
-$blue: #1486fb;
-$red:  #F45D01;
-$gray: #757a84;
-$green: #68D16F;
-
-$gray-100: #F5F6F7;
-$gray-300: #E0E4E9;
-
-$upvote: #F45D01;
-$downvote: #1486fb;
-$admin: #F45D01;
-$banned: #FF9999;
-
 $theme-colors: (
-  "primary": $primary,
-  "secondary": $secondary,
-  "danger": $danger,
-  "dark": $dark,
-  "white": $white
+  "primary": #1486fb,
+  "danger": #F45D01
 );
 
 // Body styling
 
-$body-color: #191919;  //this is the text color
+$body-color: #344055;  //this is the text color
 $body-bg: #F5F7F9; //this is the background color
 
 // Borders
@@ -46,7 +20,6 @@ $text-muted: #757a84;
 // Fonts
 
 $font-family-sans-serif: Open Sans;
-
 
 // Colors
 
@@ -64,7 +37,6 @@ $admin: #F45D01;
 $mod: #07c20c;
 $banned: #FF9999;
 
-
 // Font size
 
 $small-font-size: 13px;
@@ -79,6 +51,18 @@ $headings-font-weight: $font-weight-bold;
 $box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05);
 
 @import "node_modules/bootstrap/scss/bootstrap";
+
+// Required
+@import "node_modules/bootstrap/scss/functions";
+@import "node_modules/bootstrap/scss/variables";
+@import "node_modules/bootstrap/scss/mixins";
+
+// Optional
+@import "node_modules/bootstrap/scss/reboot";
+@import "node_modules/bootstrap/scss/type";
+@import "node_modules/bootstrap/scss/images";
+@import "node_modules/bootstrap/scss/code";
+@import "node_modules/bootstrap/scss/grid";
 
 html {
     font-size: 14px;
@@ -124,7 +108,7 @@ ol > li::before {
     display: inline-block;
     font-size: 13px;
     font-weight: 600;
-    color: $secondary;
+    color: #1486fb;
     text-align: center;
     margin-right: 0.5rem;
 }
@@ -136,8 +120,9 @@ ol > li::before {
 // Buttons
 
 .btn {
+    line-height: 1.3;
     border-radius: .25rem;
-    font-size: $small-font-size;
+    font-weight: 600;
 }
 
 .btn-light {
@@ -152,10 +137,12 @@ ol > li::before {
 
 // Navbar and Subnavbar
 
+.navbar {
+    border-bottom: 1px solid $border-color;
+}
 
 .navbar-brand, .navbar-light .navbar-brand {
-
-    color: $purple;
+    color: $primary;
     font-weight: $font-weight-bold;
 }
 
@@ -180,10 +167,6 @@ ol > li::before {
 }
 
 .navbar-light .navbar-nav .btn-outline-primary.nav-link:hover {
-    color: $white;
-}
-
-.navbar-dark .navbar-nav .nav-link {
     color: $white;
 }
 
@@ -228,7 +211,7 @@ label.terms {
     font-weight: normal;
     text-transform: none;
     font-size: 13px;
-    color: $body-color;
+    color: #344055;
     vertical-align: middle;
 }
 
@@ -251,10 +234,14 @@ label.terms {
 }
 
 .fa-icon-circle {
-    font-size: $font-size-lg;
+    font-size: 1rem;
+    height: 35px;
+    width: 35px;
+    line-height: 1.5rem;
     text-align: center;
+    border: 1px solid $gray-300;
     border-radius: 50%;
-    padding: 0 0.5rem;
+    padding: 0.5rem;
 }
 
 .fa-bold:hover {
@@ -369,7 +356,7 @@ label.terms {
 .sidebar .sidebar-section .title {
     font-size: 14px;
     font-weight: 600;
-    color: $body-color;
+    color: #344055;
     padding: 0.75rem 1rem 0;
 }
 
@@ -387,17 +374,13 @@ label.terms {
 .sidebar-section.sidebar-trending .hashtag {
     margin-bottom: .5rem;
     padding-bottom: .25rem;
-    color: $secondary;
+    color: #1486fb;
     font-weight: bold;
-}
-
-.sidebar-section.sidebar-trending .hashtag a {
-    color: $secondary;
 }
 
 .sidebar-section.sidebar-alert {
     color: $white;
-    background-color: $dark;
+    background-color: $blue;
     border: none;
 }
 
@@ -452,7 +435,7 @@ label.terms {
 }
 
 .post-title a:hover, a:active, a:focus  {
-    color: $purple;
+    color: $blue;
     text-decoration: none;
 }
 
@@ -581,13 +564,12 @@ label.terms {
 }
 
 .comment-actions a:hover, a:active, a:focus {
-    color: $purple;
+    color: $blue;
     text-decoration: none;
 }
 
 ul.comment-section {
     padding-left: 0;
-    margin-bottom: 0;
 }
 
 .comment-count {
@@ -712,9 +694,9 @@ ul.comment-section {
 }
 
 .reaction .reacted {
-    border-color: $purple;
+    border-color: $blue;
     background-color: rgba(60, 173, 243, 0.08);
-    color: $purple
+    color: $blue
 }
 
 // Sidebar
