@@ -59,7 +59,7 @@ def activate():
         return render_template("message.html", title="Verification link expired.", message=f"That link has expired."), 410
 
 
-    if not validate_hash(f"{email}+{id}+{timestamp}", token)
+    if not validate_hash(f"{email}+{id}+{timestamp}", token):
         abort(400)
 
     user = db.query(User).filter_by(id=id).first()
