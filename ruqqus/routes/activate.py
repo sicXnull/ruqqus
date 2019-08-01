@@ -37,5 +37,9 @@ def activate():
         return redirect(url_for("login"))
 
 
+    flash("Invalid Activation Link")
+    return redirect(url_for("index"))
+
+
 
 

@@ -15,6 +15,8 @@ from ruqqus.__main__ import app
 valid_username_regex=re.compile("^\w{5,}$")
 valid_password_regex=re.compile("^.{8,}$")
 
+
+
 #login form
 @app.route("/login", methods=["GET"])
 @auth_desired
@@ -206,9 +208,7 @@ def sign_up_post(v):
 
 
 
-    #send_mail(to_address=new_user.email, from_address=None,
-    #          subject="T_D Account Activation",
-    #          plaintext=f"http://tee-dee.herokuapp.com/activate?hash={v.activehash}", html=None)
+    send_verification_email(v)
 
     session["user_id"]=v.id
     session["session_id"]=token_hex(16)
