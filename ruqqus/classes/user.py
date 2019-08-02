@@ -243,7 +243,7 @@ class User(Base):
 
         db.commit()
 
-        return render_template("notifications.html", notifications=notifications)
+        return render_template("notifications.html", v=self, notifications=notifications)
     
     @property
     @_lazy
