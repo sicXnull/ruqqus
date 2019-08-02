@@ -31,7 +31,7 @@ class User(Base):
     most_recent_ip=Column(String, default=None)
     submissions=relationship("Submission", lazy="dynamic", backref="users")
     comments=relationship("Comment", lazy="dynamic")
-    comment_notifications=relationship("Comment", lazy="dynamic", primaryjoin="comments.parent_author_id==users.id")
+    comment_notifications=relationship("Comment", lazy="dynamic", primaryjoin="Comment.parent_author_id==User.id")
     votes=relationship("Vote", lazy="dynamic", backref="users")
     commentvotes=relationship("CommentVote", lazy="dynamic", backref="users")
     ips = relationship('IP', lazy="dynamic", backref="users")
