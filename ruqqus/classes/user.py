@@ -242,5 +242,5 @@ class User(Base):
 
         db.commit()
 
-        return render_template("notifications.html", self.comment_notifications)
+        return render_template("notifications.html", notifications=notifications)
         
