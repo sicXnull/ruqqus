@@ -19,15 +19,6 @@
 
 {% block content %}
 
-{% set score=p.score_fuzzed %}
-{% if v %}
-{% set voted=v.vote_status_on_post(p) %}
-{% set adjust=voted %}
-{% else %}
-{% set voted=-2 %}
-{% set adjust=0 %}
-{% endif %}
-
 <div class="container">
         <div class="row justify-content-around mx-lg-5">
 
