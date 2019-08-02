@@ -235,10 +235,11 @@ class User(Base):
             notifications=notifications.filter_by(read=False)
 
         notifications=notifications.order_by(text("created_utc desc")).offset(25*(page-1)).limit(25)
-                                             
+                                 
         for c in self.comment_notifications:
-            c.read=True
-            db.add(c)
+            if not c.read:
+                c.read=True
+                db.add(c)
 
         db.commit()
 
