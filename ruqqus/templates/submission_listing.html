@@ -26,16 +26,26 @@
 
                 {% if p.url.endswith((".jpg",".png")) %}<img href="{{ p.url }}" src="{{ p.url }}" class="post-img" alt="">{% endif %}
               </div>
-              <div class="card-block my-auto">
-                <h5 class="card-title text-left mb-2"><a href="{{ p.url }}" rel="nofollow" target="_blank">{{ p.title }}</a></h5>
-                <div class="post-meta text-left">{% if p.stickied %}<span title="pinned">📌</span> | {% endif %}{% if p.distinguish_level %}{% include "tags/d.html" %}| {% endif %}Posted by <a href="{{ p.author.url }}">{{ p.author.username }}</a> {{ p.age_string }} | ({{ p.domain }})</div>
+              <div class="card-block text-left my-auto">
+                <h5 class="card-title post-title text-left mb-0"><a href="{{ p.url }}" class="stretched-link" rel="nofollow" target="_blank">{{ p.title }}</a></h5>
+                <div class="post-meta mt-1">{% if p.stickied %}<span title="pinned">📌</span> | {% endif %}{% if p.distinguish_level %}{% include "tags/d.html" %}| {% endif %}Posted by <a href="{{ p.author.url }}">{{ p.author.username }}</a> {{ p.age_string }} | ({{ p.domain }})</div>
 
-                <div class="post-actions">
+                <div class="post-actions mt-1">
                   <ul class="list-inline text-left">
-                    <li class="list-inline-item text-muted text-small"><a href="{{ p.permalink }}">{{ p.comment_count }} comment{{ 's' if p.comment_count != 1 else '' }}</a></li>
-                    <li class="list-inline-item text-muted">Share</li>
-                    <li class="list-inline-item text-muted">Save</li>
-                    <li class="list-inline-item text-muted">Flag</li>
+                    <li class="list-inline-item"><a href="{{ p.permalink }}">{{ p.comment_count }} comment{{ 's' if p.comment_count != 1 else '' }}</a></li>
+                    <li class="list-inline-item">Share</li>
+                    <li class="list-inline-item">
+                      <div class="dropdown show">
+                        <a href="#" role="button" id="dropdownMoreLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          <i class="fas fa-ellipsis-h"></i>More
+                        </a>
+                    
+                        <div class="dropdown-menu" aria-labelledby="dropdownMoreLink">
+                          <a class="dropdown-item" href="#"><i class="fas fa-save"></i> Save</a>
+                          <a class="dropdown-item" href="#"><i class="fas fa-flag"></i> Flag</a>
+                        </div>
+                      </div>
+                    </li>
                   </ul>
                 </div>
 
