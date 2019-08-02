@@ -13,7 +13,7 @@
           </li>
 	  {% if v.notifications_count %}
           <li class="nav-item d-flex align-items-center justify-content-center">
-            <span class="red"><a class="nav-link" href="/notifications"><i class="fa-icon-circle fas fa-bell"></i>[{{ v.notifications_count }}]</a></span>
+            <a class="nav-link" href="/notifications"><span class="red"><i class="fa-icon-circle fas fa-bell"></i>[{{ v.notifications_count }}]</span></a>
           </li>
 	  {% else %}
 	  <li class="nav-item d-flex align-items-center justify-content-center">
