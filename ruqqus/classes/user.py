@@ -31,6 +31,7 @@ class User(Base):
     most_recent_ip=Column(String, default=None)
     submissions=relationship("Submission", lazy="dynamic", backref="users")
     comments=relationship("Comment", lazy="dynamic")
+    comment_notifications=relationship("Comment", lazy="dynamic", primaryjoin="comments.parent_author_id==users.id")
     votes=relationship("Vote", lazy="dynamic", backref="users")
     commentvotes=relationship("CommentVote", lazy="dynamic", backref="users")
     ips = relationship('IP', lazy="dynamic", backref="users")
@@ -227,18 +228,12 @@ class User(Base):
     def notifications_unread(self, page=1):
 
         page=int(page)
-
-        notifications = db.query("comments"
-                                 ).filter(text(f"parent_author_id={self.id} AND read=false"
-                                             )).order_by(text("comments.created_utc DESC")
-                                                        ).offset(25*(page-1)).limit(25).all()
-
                                              
-        for c in notifications:
+        for c in self.comment_notifications:
             c.read=True
             db.add(c)
 
         db.commit()
 
-        return render_template("notifications.html", notifications)
+        return render_template("notifications.html", self.comment_notifications)
         
