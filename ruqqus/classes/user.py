@@ -225,9 +225,16 @@ class User(Base):
 
         return str(base_encode(R, 16))+str(base_encode(G, 16))+str(base_encode(B, 16))
 
-    def notifications_unread(self, page=1):
+    def notifications_unread(self, page=1, include_read=False):
 
         page=int(page)
+
+        notifications=self.comment_notifications
+
+        if not include_read:
+            notifications=notifications.filter_by(read=False)
+
+        notifications=notifications.order_by(text("created_utc desc")).offset(25*(page-1)).limit(25)
                                              
         for c in self.comment_notifications:
             c.read=True
