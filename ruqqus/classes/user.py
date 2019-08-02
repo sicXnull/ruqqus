@@ -229,14 +229,13 @@ class User(Base):
 
         page=int(page)
 
-        notifications=self.comment_notifications
+        if include_read:
+            notifications=[c for c in self.comment_notifications.order_by(text("created_utc desc")).offset(25*(page-1)).limit(25)]
+        else:
+            notifications=[c for c in self.comment_notifications.filter_by(read=False).order_by(text("created_utc desc")).offset(25*(page-1)).limit(25)]
 
-        if not include_read:
-            notifications=notifications.filter_by(read=False)
-
-        notifications=notifications.order_by(text("created_utc desc")).offset(25*(page-1)).limit(25)
                                  
-        for c in self.comment_notifications:
+        for c in notifications:
             if not c.read:
                 c.read=True
                 db.add(c)
