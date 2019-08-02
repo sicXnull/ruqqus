@@ -244,4 +244,10 @@ class User(Base):
         db.commit()
 
         return render_template("notifications.html", notifications=notifications)
+    
+    @property
+    @_lazy
+    def notifications_count(self):
+
+        return self.comment_notifications.filter_by(read=False).count()
         

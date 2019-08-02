@@ -5,14 +5,6 @@
 <meta name="description" content="Sign into Ruqqus to view">
 {% endblock %}
 
-{% block sidebarblock %}
-<div class="sidebar-section sidebar-submission">
-  <div class="input-group align-items-center text-small">
-    <div class="pr-2">shortlink:</div><input type="text" readonly="readonly" value="https://ruqq.us/{{ p.base36id }}">
-  </div>
-</div>
-{% endblock %}
-
 {% block adminscripts %}
 <script src="/assets/js/comment_modding.js"></script>
 {% endblock %}
@@ -24,7 +16,7 @@
 
             <div class="col bg-white border rounded py-3">
 
-                <div id="post-{{ p.base36id }}" class="row text-center mb-5{% if voted==1 %} upvoted{% elif voted==-1 %} downvoted{% endif %}">
+                <div id="comment-listing" class="row text-center mb-5">
 
                     <div class="col-12">
 
