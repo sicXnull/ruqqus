@@ -24,6 +24,8 @@ class Comment(Base):
     is_banned = Column(Boolean, default=False)
     body_html = Column(String)
     distinguish_level=Column(Integer, default=0)
+    parent_author_id=Column(Integer)
+    read=Column(Boolean, default=False)
 
     #These are virtual properties handled as postgres functions server-side
     #There is no difference to SQLAlchemy, but they cannot be written to
