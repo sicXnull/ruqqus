@@ -177,7 +177,7 @@ def api_comment(v):
               body_html=body_html,
               parent_submission=parent_submission,
               parent_fullname=parent_fullname,
-              parent_author_id=parent.author.id
+              parent_author_id=parent.author.id if parent.author.id != v.id else None
               )
 
     #no replying to removed things
