@@ -16,6 +16,7 @@ class Submission(Base):
     __tablename__="submissions"
 
     id = Column(BigInteger, primary_key=True)
+    board_id = Column(BigInteger, ForeignKey())
     author_id = Column(BigInteger, ForeignKey(User.id))
     title = Column(String(500), default=None)
     url = Column(String(500), default=None)
