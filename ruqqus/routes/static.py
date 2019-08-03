@@ -90,3 +90,8 @@ def submit_get(v):
 @app.route("/favicon.ico")
 def favicon_ico():
     return send_from_directory('./assets', "images/favicon.ico")
+
+@app.route("/dms", methods=["GET"])
+@auth_required
+def dms(v):
+    return render_template("dmspage.html", v=v)

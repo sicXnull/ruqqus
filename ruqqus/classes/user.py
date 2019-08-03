@@ -35,6 +35,7 @@ class User(Base):
     votes=relationship("Vote", lazy="dynamic", backref="users")
     commentvotes=relationship("CommentVote", lazy="dynamic", backref="users")
     ips = relationship('IP', lazy="dynamic", backref="users")
+    dms = relationship('DMs', lazy="dynamic", backref="users")
 
     #properties defined as SQL server-side functions
     energy = Column(Integer, server_default=FetchedValue())
