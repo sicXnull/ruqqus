@@ -12,6 +12,7 @@ class Subscriptions(Base):
     uid = Column(Integer, ForeignKey("users.id"))
     board_id = Column(BigInteger, ForeignKey("submissions.board_id"))
     is_banned = Column(Boolean, default=False)
+    created_utc = Column(Integer, default=None)
 
     def __init__(self, *args, **kwargs):
         if "created_utc" not in kwargs:
