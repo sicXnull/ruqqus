@@ -10,13 +10,14 @@ from ruqqus.helpers.base36 import *
 from ruqqus.__main__ import Base, db
 from .user import User
 from .votes import Vote
+from .boards import Boards
 
 class Submission(Base):
 
     __tablename__="submissions"
 
     id = Column(BigInteger, primary_key=True)
-    board_id = Column(BigInteger, ForeignKey())
+    board_id = Column(BigInteger, ForeignKey(Boards.board_id))
     author_id = Column(BigInteger, ForeignKey(User.id))
     title = Column(String(500), default=None)
     url = Column(String(500), default=None)
