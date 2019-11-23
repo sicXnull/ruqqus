@@ -7,9 +7,11 @@ from urllib.parse import urlparse
 from random import randint
 
 from ruqqus.helpers.base36 import *
-from ruqqus.__main__ import Base, db
+from ruqqus.helpers.lazy import lazy
+from ruqqus.__main__ import Base, db, cache
 from .user import User
 from .votes import Vote
+from .domains import Domain
 
 class Submission(Base):
 
@@ -21,21 +23,22 @@ class Submission(Base):
     url = Column(String(500), default=None)
     created_utc = Column(BigInteger, default=0)
     is_banned = Column(Boolean, default=False)
+    is_deleted=Column(Boolean, default=False)
     distinguish_level=Column(Integer, default=0)
     created_str=Column(String(255), default=None)
     stickied=Column(Boolean, default=False)
     comments=relationship("Comment", lazy="dynamic", backref="submissions")
     body=Column(String(2000), default="")
     body_html=Column(String(2200), default="")
+    embed_url=Column(String(256), default="")
+    domain_ref=Column(Integer, ForeignKey("domains.id"))
+
 
     #These are virtual properties handled as postgres functions server-side
     #There is no difference to SQLAlchemy, but they cannot be written to
     #appts = db.session.query(Appointment).from_statement(func.getopenappointments(current_user.id))
     ups = Column(Integer, server_default=FetchedValue())
     downs=Column(Integer, server_default=FetchedValue())
-    score=Column(Integer, server_default=FetchedValue())
-    rank_hot=Column(Float, server_default=FetchedValue())
-    rank_fiery=Column(Float, server_default=FetchedValue())
     age=Column(Integer, server_default=FetchedValue())
     comment_count=Column(Integer, server_default=FetchedValue())
     
@@ -52,33 +55,46 @@ class Submission(Base):
     def __repr__(self):
         return f"<Submission(id={self.id})>"
 
-    def _lazy(f):
-
-        def wrapper(self, *args, **kwargs):
-
-            if "_lazy_dict" not in self.__dict__:
-                self._lazy_dict={}
-
-            if f.__name__ not in self._lazy_dict:
-                self._lazy_dict[f.__name__]=f(self, *args, **kwargs)
-
-            return self._lazy_dict[f.__name__]
-
-        wrapper.__name__=f.__name__
-        return wrapper
+    @property
+    @cache.memoize(timeout=60)
+    def rank_hot(self):
+        return (self.ups-self.downs)/(((self.age+100000)/6)**(1/3))
 
     @property
-    @_lazy
+    #@cache.memoize(timeout=60)
+    def domain_obj(self):
+        if not self.domain_ref:
+            return None
+        
+        return db.query(Domain).filter_by(id=self.domain_ref).first()
+
+
+    @property
+    @cache.memoize(timeout=60)
+    def rank_fiery(self):
+        return (math.sqrt(self.ups * self.downs))/(((self.age+100000)/6)**(1/3))
+
+    @property
+    @cache.memoize(timeout=60)
+    def score(self):
+        return self.ups-self.downs
+    @property
+    @cache.memoize(timeout=60)
+    def score_percent(self):
+        try:
+            return int((self.ups/(self.ups+self.downs))*100)
+        except ZeroDivisionError:
+            return 0
+
+    @property
     def base36id(self):
         return base36encode(self.id)
 
     @property
-    @_lazy
     def fullname(self):
         return f"t2_{self.base36id}"
 
     @property
-    @_lazy
     def permalink(self):
         return f"/post/{self.base36id}"
                                       
@@ -86,29 +102,46 @@ class Submission(Base):
 
         #check for banned
         if self.is_banned:
-            return render_template("submission_banned.html", v=v, p=self)
+            if v:
+                if v.admin_level:
+                    template="submission.html"
+
+                else: 
+                    template="submission_banned.html"
+            else:
+                template="submission_banned.html"
+        else:
+            template="submission.html"
 
         #load and tree comments
         #calling this function with a comment object will do a comment permalink thing
         self.tree_comments(comment=comment)
-
+        
         #return template
-        return render_template("submission.html", v=v, p=self, sort_type=request.args.get("sort","Hot").capitalize())
+
+        if self.domain_obj:
+
+            print(f"anon exempt policy: {self.domain_obj.anon_free_embed}")
+        return render_template(template, v=v, p=self, sort_method=request.args.get("sort","Hot").capitalize())
 
     @property
-    @_lazy
+    @lazy
     def author(self):
-        if self.author_id==0:
-            return None
-        else:
-            return db.query(User).filter_by(id=self.author_id).first()
+        return db.query(User).filter_by(id=self.author_id).first()
+
 
     @property
+    @lazy
     def domain(self):
-        return urlparse(self.url).netloc
+
+        if not self.url:
+            return "text post"
+        domain= urlparse(self.url).netloc
+        if domain.startswith("www."):
+            domain=domain.split("www.")[1]
+        return domain
     
     @property
-    @_lazy
     def score_fuzzed(self, k=0.01):
         real=self.score
         a=math.floor(real*(1-k))
@@ -117,7 +150,7 @@ class Submission(Base):
 
     def tree_comments(self, comment=None):
 
-        def tree_replies(thing):
+        def tree_replies(thing, layer=1):
 
             thing.__dict__["replies"]=[]
             i=len(comments)-1
@@ -128,9 +161,10 @@ class Submission(Base):
                     comments.pop(i)
 
                 i-=1
-
-            for reply in thing.replies:
-                tree_replies(reply)
+                
+            if layer <=8:
+                for reply in thing.replies:
+                    tree_replies(reply, layer=layer+1)
                 
         ######
                 
@@ -151,7 +185,7 @@ class Submission(Base):
             comments=self.comments.order_by(text("comments.score ASC")).all()
         elif sort_type=="new":
             comments=self.comments.order_by(text("comments.created_utc")).all()
-        elif sort_type=="fiery":
+        elif sort_type=="disputed":
             comments=self.comments.order_by(text("comments.rank_fiery ASC")).all()
 
 
@@ -188,3 +222,8 @@ class Submission(Base):
             years=now.tm_year-ctd.tm_year
             return f"{years} year{'s' if years>1 else ''} ago"
         
+
+    @property
+    def created_date(self):
+
+        return time.strftime("%d %B %Y", time.gmtime(self.created_utc))

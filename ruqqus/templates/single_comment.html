@@ -7,95 +7,222 @@
 {% set adjust=0 %}
 {% endif %}
 
-
-<div id="comment-{{ c.base36id }}" name="comment-{{ c.base36id }}" class="comment rounded">
-
-<span class="toggle-collapse"></span>
-
-
-<div class="comment-body">
-
-  <div id="comment-{{ c.base36id }}-only" class="{% if c.is_banned %} banned{% endif %} {% if c.distinguish_level >=4 %} distinguish-admin{% elif c.distinguish_level >=1 %} distinguish-mod{% endif %}">
-
-
-    <div class="user-info">
-        <a class="dropdown-toggle user-name" href="{{ c.author.url }}" class="font-weight-bold text-small user-name">{{ c.author.username }}</a> | <span id="comment-{{ c.base36id }}-score-up" {% if not voted==1 %}class="noshow"{% endif %}>{{ score+1-adjust }}</span><span id="comment-{{ c.base36id }}-score-none" {% if voted not in [0,-2] %}class="noshow"{% endif %}>{{ score-adjust }}</span><span id="comment-{{ c.base36id }}-score-down" {% if not voted==-1 %}class="noshow"{% endif %}>{{ score-1-adjust }}</span> point{{ 's' if score+adjust != 1 else '' }} <span class="time-stamp">{{ c.age_string }}</span>
-    </div>
-    
-        <div class="dropdown-menu dropdown-menu-right dropdown-menu-lg-left profile-menu p-0 fade mt-3"
-            aria-labelledby="dropdownMenuButton">
-
-            <div class="user-stats text-center">
-                <div class="p-3">
-                    <div class="font-weight-bold">{{ c.author.username }}</div>
-
-                    <div class="text-small text-muted">{{ c.author.energy }} energy</div>
-                </div>
-                <div class="btn-group bg-light p-3" role="group" aria-label="mini-profile buttons">
-                    <a href="{{ c.author.url }}" class="btn btn-secondary btn-sm rounded mr-2" role="button"><i class="fas fa-paper-plane"
-                            aria-hidden="true"></i></a>
-                    <a href="{{ c.author.url }}" class="btn btn-primary btn-sm rounded" role="button">View Profile</a>
-                </div>
-
-            </div>
-        </div>
-
-    <div class="comment-body">{{ c.body_html | safe }}</div>
-
-    <div id="comment-{{ c.base36id }}-voting" class="comment-actions {% if voted==1 %} upvoted{% elif voted==-1 %} downvoted{% endif %}">
-        <ul class="list-inline text-left">
-
-            <li id="comment-{{ c.base36id }}-up" class="list-inline-item arrow-up" {% if voted==1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','1')"{% endif %}>
-            </li>
-            <li id="comment-{{ c.base36id }}-down" class="list-inline-item arrow-down" {% if voted==-1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','-1')"{% endif %}>
-            </li>
-	
-	{% if v %}
-	{% if not v.is_banned %}
-            <li class="list-inline-item text-muted text-small"><a href="javascript:void(0)" onclick="addReplyForm('{{ c.base36id }}', '{{ c.post.base36id }}')"><i class="fas fa-reply"
-                    aria-hidden="true"></i><span class=""><span
-                        class="comments-number"></span> Reply</span></a>
-            </li>
-	{% endif %}
-	{% endif %}
-
-            <li class="list-inline-item text-muted"><a href="{{ c.permalink }}"><span class="share">permalink</span></a>
-            </li>
-            <li class="list-inline-item text-muted"><a href="{{ c.parent.permalink }}"><span class="save">parent</span></a>
-	    </li>
-            <li class="list-inline-item text-muted"><a href="#"><i class="fas fa-flag"
-                    aria-hidden="true"></i><span class="flag">
-                    Flag</span></a></li>
-{% if v %}
-{% if v.admin_level>=1 and v.id==c.author_id %}
-{% if c.distinguish_level %}
-
-	    <li class="list-inline-item text-muted"><a id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="undistinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')">undistinguish</a></li>
-{% else %}
-	    <li class="list-inline-item text-muted"><a id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="distinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')">distinguish</a></li>
-
-{% endif %}
-{% endif %}
-{% if v.admin_level>=1 and v.admin_level > c.author.admin_level %}
-{% if not c.is_banned %}
-	    <li class="list-inline-item text-muted"><a id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="removeComment('{{ c.base36id }}')">remove</a></li>
-{% else %}
-	    <li class="list-inline-item text-muted"><a id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="approveComment('{{ c.base36id }}')">approve</a></li>
-{% endif %}
-{% endif %}
-{% endif %}
-        </ul>
-    </div>
-
-  </div>
-
-  <div id="reply-to-{{ c.base36id }}"></div>
-  {% if render_replies %}
-  {% for reply in c.replies %}
-  <div style="padding-left:10px">
-  {{ reply.rendered_comment(v=v) | safe }}
-  </div>
-  {% endfor %}
-  {% endif %}
+{% if standalone %}
+<div class="post-info font-weight-bold">
+    <span class="align-top"><a href="{{ c.permalink }}">{{ c.post.title }}</a></span>
 </div>
+{% endif %}
+
+<div id="comment-{{ c.base36id }}" class="comment rounded">
+
+
+    <span class="comment-collapse"></span>
+
+    <div class="comment-body">
+
+        <div id="comment-{{ c.base36id }}-only" class="{% if c.distinguish_level>=3 %} distinguish-admin{% elif c.distinguish_level %} distinguish-mod{% elif c.author_id==c.post.author_id %} distinguish-op{% endif %}{% if c.is_banned %} banned{% endif %}{% if c.is_deleted %} deleted{% endif %}">
+
+            <div class="user-info">
+                <a href="{{ c.author.permalink }}" class="user-name">{{ c.author.username }}</a>
+                <span class="time-stamp"><span>&#183;</span> {{ c.age_string }}</span>
+            </div>
+
+            <div class="comment-text">
+                {{ c.body_html | safe }}
+            </div>
+
+
+            <div id="comment-{{ c.base36id }}-actions" class="comment-actions{% if voted==1 %} upvoted{% elif voted==-1 %} downvoted{% endif %}">
+                <ul class="list-inline text-right text-md-left">
+
+                    {% if v %}
+
+                    <li id="comment-{{ c.base36id }}-up" class="list-inline-item arrow-up d-none d-md-inline-block mr-2" {% if voted==1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','1')"{% endif %}>
+                    </li>
+
+                    {% else %}
+
+                    <li id="comment-{{ c.base36id }}-up" class="list-inline-item arrow-up d-none d-md-inline-block mr-2" onclick="location.href='/login';">
+                    </li>
+
+                    {% endif %}
+
+                    <li class="list-inline-item d-none d-md-inline-block mr-2">
+                        <span class="points"><span id="comment-{{ c.base36id }}-score-up"{% if voted!=1 %} class="d-none text-upvote"{% endif %}>{{ score+1-adjust }}</span><span id="comment-{{ c.base36id }}-score-none"{% if voted not in [-2,0] %} class="d-none text-black"{% endif %}>{{ score-adjust }}</span><span id="comment-{{ c.base36id }}-score-down"{% if voted!=-1 %} class="d-none text-downvote"{% endif %}>{{ score-1-adjust }}</span></span>
+                    </li>
+
+                    {% if v %}
+                    <li id="comment-{{ c.base36id }}-down" class="list-inline-item arrow-down d-none d-md-inline-block" {% if voted==-1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','-1')"{% endif %}>
+                    </li>
+
+                    {% else %}
+
+                    <li id="comment-{{ c.base36id }}-down" class="list-inline-item arrow-down d-none d-md-inline-block" onclick="location.href='/login';">
+                    </li>
+
+                    {% endif %}
+
+                    {% if v %}
+                    {% if not v.is_banned %}
+                    <li class="list-inline-item text-muted"><a href="javascript:void(0)" onclick="addReplyForm('{{ c.base36id }}', '{{ c.post.base36id }}')"><i class="fas fa-reply"
+                        aria-hidden="true"></i><span class="d-none d-md-inline-block">Reply</span></a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    <li class="list-inline-item text-muted d-none d-md-inline-block"><a href="javascript:void(0);" role="button" class="copy-link" data-clipboard-text="https://www.ruqqus.com{{ c.permalink }}"><i class="fas fa-link"></i><span>Copy link</span></a>
+                    </li>
+                    <li class="list-inline-item d-none d-md-inline-block">
+                        <div class="dropdown show">
+                          <a href="#" role="button" id="dropdownMoreLink" data-toggle="dropdown" aria-haspopup="true"
+                          aria-expanded="false">
+                          <i class="fas fa-ellipsis-h"></i>
+                      </a>
+
+                      <div class="dropdown-menu border-0 shadow" aria-labelledby="dropdownMoreLink">
+                        <a class="dropdown-item" href="{{ c.parent.permalink }}"><i class="fas fa-dna"></i>Parent</a>
+                        <a class="dropdown-item d-none" href="#"><i class="fas fa-save"></i>Save</a>
+                        <a class="dropdown-item d-none" href="#"><i class="fas fa-flag"></i>Flag</a>
+
+                        {% if v and c.author_id==v.id %}
+                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#deleteModal-{{ c.base36id }}"><i class="fas fa-trash-alt"></i>Delete</a>
+                        {% endif %}
+
+                        {% if v %}
+                        {% if v.admin_level>=1 and v.id==c.author_id %}
+                        {% if c.distinguish_level %}
+
+                        <div class="dropdown-divider"></div>
+                        <h6 class="dropdown-header">Admin actions</h6>
+
+                        <a class="dropdown-item" id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="undistinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')"><i class="fas fa-id-badge"></i>Undistinguish</a>
+                        {% else %}
+                        <a class="dropdown-item" id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="distinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')"><i class="fas fa-id-badge"></i>Distinguish</a>
+
+                        {% endif %}
+                        {% endif %}
+                        {% if v.admin_level>=1 and v.admin_level > c.author.admin_level %}
+                        {% if not c.is_banned %}
+                        <a class="dropdown-item removeDropdownItem" id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="removeComment('{{ c.base36id }}')"><i class="fas fa-trash-alt"></i>Remove</a>
+                        {% else %}
+                        <a class="dropdown-item approveDropdownItem" id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="approveComment('{{ c.base36id }}')"><i class="fas fa-clipboard-check"></i>Approve</a>
+                        {% endif %}
+                        {% endif %}
+                        {% endif %}
+
+                    </div>
+                </div>
+            </li>
+            <li class="list-inline-item d-inline-block d-md-none">
+                <a href="#" data-toggle="modal" data-target="#actionsModal-{{ c.base36id }}" data-focus="false"><i class="fas fa-ellipsis-h"></i></a>
+            </li>
+            {% if v %}
+            <li id="comment-{{ c.base36id }}-up" class="list-inline-item arrow-up d-inline-block d-md-none mr-2" {% if voted==1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','1')"{% endif %}>
+            </li>
+            {% else %}
+            <li id="comment-{{ c.base36id }}-up" class="list-inline-item arrow-up d-inline-block d-md-none mr-2" onclick="location.href='/login';">
+            </li>
+            {% endif %}
+            <li class="list-inline-item d-inline-block d-md-none mr-2">
+                <span class="points"><span id="comment-{{ c.base36id }}-score-up"{% if voted!=1 %} class="d-none text-upvote"{% endif %}>{{ score+1-adjust }}</span><span id="comment-{{ c.base36id }}-score-none"{% if voted not in [-2,0] %} class="d-none text-black"{% endif %}>{{ score-adjust }}</span><span id="comment-{{ c.base36id }}-score-down"{% if voted!=-1 %} class="d-none text-downvote"{% endif %}>{{ score-1-adjust }}</span></span>
+            </li>
+            {% if v %}
+            <li id="comment-{{ c.base36id }}-down" class="list-inline-item arrow-down d-inline-block d-md-none" {% if voted==-1 %}onclick="vote_comment('{{ c.base36id }}','0')"{% elif voted > -2 %}onclick="vote_comment('{{ c.base36id }}','-1')"{% endif %}>
+            </li>
+            {% else %}
+            <li id="comment-{{ c.base36id }}-down" class="list-inline-item arrow-down d-inline-block d-md-none" onclick="location.href='/login';">
+            </li>
+            {% endif %}
+        </ul>
+
+    </div>
+</div>
+
+<div id="reply-to-{{ c.base36id }}"></div>
+
+{% if render_replies %}
+{% if level==8 and c.replies %}
+
+
+<div id="morecomment-{{ c.base36id }}" class="mt-2 more-comments text-small">
+    <a href="{{ c.permalink }}">More comments →</a>
+</div>
+
+{% else %}
+{% for reply in c.replies %}
+<div class="">
+    {{ reply.rendered_comment(v=v, level=level+1) | safe }}
+</div>
+{% endfor %}
+{% endif %}
+{% endif %}
+</div>
+
+<!-- Comment Actions Modal -->
+<div class="modal fade d-md-none" id="actionsModal-{{ c.base36id }}" tabindex="-1" role="dialog" aria-labelledby="actionsModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title h6">More options</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true"><i class="far fa-times"></i></span>
+          </button>
+      </div>
+      <div class="modal-body">
+          <ul class="list-group comment-actions">
+            <li class="list-group-item"><a href="javascript:void(0);" role="button" class="d-block copy-link" data-clipboard-text="https://www.ruqqus.com{{ c.permalink }}"><i class="fas fa-link"></i><span>Share</span></a>
+                <li class="list-group-item"><a class="d-block" href="{{ c.parent.permalink }}"><i class="fas fa-dna"></i>Parent</a></li>
+                <li class="list-group-item d-none"><a href="#" class="d-block"><i class="fas fa-save"></i>Save</a></li>
+                <li class="list-group-item d-none"><a href="#" class="d-block"><i class="fas fa-flag"></i>Flag</a></li>
+
+                {% if v and c.author_id==v.id %}
+                <li class="list-group-item"><a class="d-block" href="#" data-toggle="modal" data-dismiss="modal" data-target="#deleteModal-{{ c.base36id }}"><i class="fas fa-trash-alt"></i>Delete</a></li>
+                {% endif %}
+
+                {% if v %}
+                {% if v.admin_level>=1 and v.id==c.author_id %}
+                {% if c.distinguish_level %}
+
+                <li class="list-group-item"><a class="d-block id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="undistinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')"><i class="fas fa-id-badge"></i>Undistinguish</a></li>
+                {% else %}
+                <li class="list-group-item"><a class="d-block" id="distinguish-{{ c.base36id }}" href="javascript:void(0)" onclick="distinguish{% if v.admin_level>=4 %}Admin{% else %}Mod{% endif %}Comment('{{ c.base36id }}')"><i class="fas fa-id-badge"></i>Distinguish</a></li>
+
+                {% endif %}
+                {% endif %}
+                {% if v.admin_level>=1 and v.admin_level > c.author.admin_level %}
+                {% if not c.is_banned %}
+                <li class="list-group-item"><a class="d-block" id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="removeComment('{{ c.base36id }}')"><i class="fas fa-trash-alt"></i>Remove</a></li>
+                {% else %}
+                <li class="list-group-item"><a class="d-block" id="moderate-{{ c.base36id }}" href="javascript:void(0)" onclick="approveComment('{{ c.base36id }}')"><i class="fas fa-clipboard-check"></i>Approve</a></li>
+                {% endif %}
+                {% endif %}
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+</div>
+
+{% if v and v.id==c.author_id %}
+<!-- Delete Comment Modal -->
+<div class="modal fade" id="deleteModal-{{ c.base36id }}" tabindex="-1" role="dialog" aria-labelledby="deleteModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-body text-center">
+        <div class="my-2" style="font-size: 4rem;">
+            <i class="fad fa-trash-alt text-muted"></i>
+        </div>
+        <div class="h5">Delete comment?</div>
+        <p class="text-muted text-small">Your comment will be removed everywhere on Ruqqus, including your profile. This action cannot be undone. </p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-link text-muted" data-dismiss="modal">Cancel</button>
+        <a href="javascript:void(0)" class="btn btn-danger" onclick="post('/delete/comment/{{ c.base36id }}', callback=function(){window.location.reload(true)})">Yes, delete
+        </a>
+    </div>
+</div>
+</div>
+</div>
+
+{% endif %}
+
 </div>

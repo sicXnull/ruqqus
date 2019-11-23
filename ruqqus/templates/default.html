@@ -7,147 +7,299 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   
   <meta name="author" content="">
-  
-  {% block title %}
-  <meta name="description" content="Social media for patriots">
-  <title>Make A Ruqqus</title>
-  {% endblock %}
 
-  <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600&display=swap" rel="stylesheet">
+  {% block title %}
+  <title>Ruqqus - The social platform for uncensored discourse</title>
+  <meta name="description" content="The independent social platform">
+  {% endblock %}
 
   <!-- Bootstrap core CSS -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-    integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-
-  <!-- Font Awesome -->
-  <script src="https://kit.fontawesome.com/e76eba0350.js"></script>
+  integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 
   <!-- Ruqqus CSS -->
-  <link rel="stylesheet" href="/assets/style/main.css">
 
+  {% if v and v.referral_count and session.get("dark_mode_enabled") %}
+  <link id="css-link" rel="stylesheet" href="/assets/style/main_dark.css">
+  {% else %}
+  <link id="css-link" rel="stylesheet" href="/assets/style/main.css">
+  {% endif %}
 
-{% if v %}
-<script>
-function post(url, callback, errortext) {
+  <!-- Font Awesome -->
+  <link href="/assets/fontawesome/css/all.css" rel="stylesheet"> <!--load all styles -->
 
-  var xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  var form = new FormData()
-  form.append("formkey", "{{ v.formkey }}");
-  xhr.withCredentials=true;
-  xhr.onload=callback
-  xhr.onerror=function(){alert(errortext)}
-  xhr.send(form);
+  {% block fixedMobileBarJS %}
+  {% endblock %}
 
-}
+  {% if v %}
 
-function formkey() {
-  return '{{ v.formkey }}';
+  <script>
+    function post(url, callback, errortext) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      var form = new FormData()
+      form.append("formkey", "{{ v.formkey }}");
+      xhr.withCredentials=true;
+      xhr.onload=callback
+      xhr.onerror=function(){alert(errortext)}
+      xhr.send(form);
+    }
+    function formkey() {
+      return '{{ v.formkey }}';
+    }
+  </script>
 
-}
+  <script src="/assets/js/voting.js"></script>
+  <script src="/assets/js/comment_replies.js"></script>
 
-</script>
-<script src="/assets/js/voting.js"></script>
-<script src="/assets/js/comment_replies.js"></script>
+  {% if v.admin_level %}
+  <script src="/assets/js/comment_modding.js"></script>
+  <script src="/assets/js/post_modding.js"></script>
+  {% endif %}
 
-{% if v.admin_level %}
-{% block adminscripts %}
-{% endblock %}
-{% endif %}
+  {% endif %}
 
-
-{% endif %}
-
-
-{% block pagejs %}
-{% endblock %}
+  {% block progressbarJS %}
+  {% endblock %}
 
 </head>
 
-<body>
-
-  <!-- Navigation -->
+<body id="{% block pagetype %}frontpage{% endblock %}">
 
   {% include "header.html" %}
-
   <!-- Page Content -->
 
-  <div class="container-fluid">
-    <div class="row justify-content-around mx-lg-5">
+  <div class="container">
+    <div class="row justify-content-around">
 
-      <div class="col bg-white rounded py-3">
-	{% block content %}
-	{% endblock %}
+      <div class="col bg-white shadow-sm shadow-sm-0 rounded-md h-100 custom-gutters">
+
+        {% block PseudoSubmitForm %}
+        {% endblock %}
+
+        {% block searchText %}
+        {% endblock %}
+
+        {% block content %}
+        {% endblock %}
+
+        {% block pagenav %}
+        {% endblock %}
 
       </div>
 
       <!-- Right Sidebar (hidden on devices smaller than "large") -->
 
-      <div class="col sidebar text-left d-none d-lg-block ml-5">
+      <div class="col sidebar text-left d-none d-lg-block ml-3">
+        {% block sidebarblock %}
         <div class="sidebar-section sidebar-about">
-          <div class="input-group align-items-center mb-4">
-            <input class="form-control border" type="search" placeholder="search for anything..."
-              id="example-search-input">
-          </div>
           <div class="title">About Ruqqus</div>
           <div class="body">
-          <p>Ruqqus is an independent social media platform built by and for American patriots.</p>
-          <small><a href="https://www.ruqqus.com/about">Learn more <span>&#8594;</span></a></small>
+            <p>Ruqqus lets you share and discover content from around the web in one place. Vote on what you like or dislike and engage in uncensored discussion with the community.</p>
+            <small><a href="/help/about">Learn more →</a></small>
           </div>
         </div>
-	{% block sidebarblock %}
-	{% endblock %}
-	{% if v %}
-	{% if v.admin_level %}
-	<div class="sidebar-section sidebar-adminpanel">
-	<div class="title">Admin Panel</div>
-  <div class="body">
-	{% block adminpanel %}
-	<p>[No admin actions available]</p>
-	{% endblock %}
-	</div>
-  </div>
-	{% endif %}
-	{% endif %}
-        <div class="sidebar-section sidebar-stats">
-          <div class="title">Stats</div>
+
+        {% endblock %}
+
+        {% if not v %}
+        <div class="sidebar-section sidebar-alert">
           <div class="body">
-          <p class="user-count"><span class="number"></span> {{ 1 | total_users }} users</p>
-          <p class="online-count"><span class="text-success">&#9673;</span><span class="number"> {{ 1 | users_here }}</span> users online</p>
+            <h5 class="h4 font-weight-normal">Make a ruqqus!</h5>
+            <p class="text-small">Jump in the discussion. Vote, comment, and engage with your favorite content.
+            </p>
+            <a href="/signup" class="btn btn-primary btn-block">Sign up</a>
           </div>
         </div>
-        <div class="sidebar-section sidebar-rules">
-          <div class="title">Ruqqus Rules</div>
+        {% endif %}
+
+        {% if v and v.referral_count==0 %}
+        <div class="sidebar-section sidebar-dark-promo text-white bg-black">
+          <div class="title" style="
+          color: #fff;
+          border-color: rgba(230, 230, 230, 0.1);
+          ">Announcement</div>
           <div class="body">
+            <div class="text-center my-3">
+              <i class="fad fa-moon-stars text-warning" style="font-size: 4rem"></i>
+            </div>
+
+            <div class="mb-2">
+              <span class="h5">Refer a friend. Get dark mode.</span>
+            </div>
+            <p class="text-small">When you invite a friend to make a Ruqqus, you'll unlock dark mode. Copy your referral code to get started.</p>
+            <label for="referral_code" class="text-white">Referral code</label>
+            <input type="text" readonly="" class="form-control copy-link" id="referral_code" value="https://ruqqus.com/signup?ref={{ v.username }}" data-clipboard-text="https://ruqqus.com/signup?ref={{ v.username }}">
+            </div>
+          </div>
+          {% endif %}
+
+          {% if v %}
+          {% if v.admin_level %}
+          <div class="sidebar-section sidebar-adminpanel">
+           <div class="title">Admin Panel</div>
+           <div class="body">
+             {% block adminpanel %}
+             <p class="text-center text-small text-muted mb-0">No admin actions available</p>
+             {% endblock %}
+           </div>
+         </div>
+         {% endif %}
+         {% endif %}
+
+         <div class="sidebar-section sidebar-trending d-none">
+          <div class="title">What's Hot</div>
+          <div class="body">
+            <p>Here are the most popular tags from the last 24 hours.</p>
+            <div class="hashtag">
+              <a href="#">#Mueller</a>
+              <div class="text-muted text-small font-weight-normal">2.3K posting about this</div>
+            </div>
+            <div class="hashtag">
+              <a href="#">#MemeWar2</a>
+              <div class="text-muted text-small font-weight-normal">1.2K posting about this</div>
+            </div>
+            <div class="hashtag">
+              <a href="#">#AskTrumpSupporters</a>
+              <div class="text-muted text-small font-weight-normal">900 posting about this</div>
+            </div>
+            <div class="hashtag">
+              <a href="#">#DNCDebates</a>
+              <div class="text-muted text-small font-weight-normal">600 posting about this</div>
+            </div>
+            <div class="hashtag">
+              <a href="#">#DNCDebates</a>
+              <div class="text-muted text-small font-weight-normal">600 posting about this</div>
+            </div>
+          </div>
+        </div>
+      <!--
+      <div class="sidebar-section sidebar-rules">
+        <div class="title">Ruqqus Rules</div>
+        <div class="body">
           <ol class="pl-0">
             <li>No racism</li>
             <li>No doxxing, threats, or calls to violence</li>
             <li>No trolling</li>
             <li>No solicitation</li>
-            <li>Patriots only</li>
           </ol>
-          </div>
         </div>
-        <div class="sidebar-section sidebar-footer">
-          {% include "footer.html" %}
+      </div>
+      <!--
+      <div class="sidebar-section sidebar-rules">
+        <div class="title">Ruqqus Rules</div>
+        <div class="body">
+          <ol class="pl-0">
+            <li>No racism</li>
+            <li>No doxxing, threats, or calls to violence</li>
+            <li>No trolling</li>
+            <li>No solicitation</li>
+          </ol>
         </div>
+      </div>
+    -->
+  </div>
+
+</div>
+</div>
+
+<!-- Clipboard Toast -->
+
+<div class="toast clipboard" id="toast-success" style="position: fixed; bottom: 1.5rem; margin: 0 auto; left: 0; right: 0; width: 275px; z-index: 1000" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
+  <div class="toast-body bg-success text-center text-white">
+    <i class="fas fa-check-circle mr-2"></i>Link copied to clipboard
+  </div>
+</div>
+
+<div class="toast clipboard" id="toast-error" style="position: fixed; bottom: 1.5rem; margin: 0 auto; left: 0; right: 0; width: 275px; z-index: 1000" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
+  <div class="toast-body bg-danger text-center text-white">
+    <i class="fas fa-exclamation-circle mr-2"></i>Unable to copy link
+  </div>
+</div>
+
+{% block actionsModal %}
+{% endblock %}
+
+<footer class="footer py-5 d-none d-md-block">
+  <div class="container-fluid">
+    <div class="row justify-content-center">
+      <div class="col">
+        <ul class="list-inline text-center text-small text-muted font-weight-bold mb-0">
+          <li class="list-inline-item"><a href="/help/about">About</a></li>
+          <li class="list-inline-item"><a href="#">Contact</a></li>
+          <li class="list-inline-item"><a href="/help/terms">Terms</a></li>
+          <li class="list-inline-item"><a href="/help/privacy">Privacy Policy</a></li>
+          <li class="list-inline-item"><a href="#">Donate</a></li>
+          <li class="list-inline-item"><a href="#">Press</a></li>
+          <li class="list-inline-item"><a href="#">Help</a></li>
+          <li class="list-inline-item"><a href="https://www.twitter.com/ruqqus">Twitter</a></li>
+          <li class="list-inline-item"><a href="https://discord.gg/U57jqnn">Discord</a></li>
+          <li class="list-inline-item"><a href="https://github.com/ruqqus/ruqqus">Github</a></li>
+          <li class="list-inline-item">&copy; 2019 Ruqqus</li>
+        </ul>
       </div>
     </div>
   </div>
+</footer>
 
-  <!-- Bootstrap core JavaScript -->
-  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-    integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-    crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
-    integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-    crossorigin="anonymous"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-    integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-    crossorigin="anonymous"></script>
+{% include "bootstrap.html" %}
+
+<script src="/assets/js/collapse.js"></script>
+<script src="/assets/js/comment_form.js"></script>
+
+{% if v %}
+<script src="/assets/js/comment_form.js"></script>
+{% endif %}
+
+<!-- ClipboardJS -->
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+
+<!-- Instantiate clipboard by passing a string selector -->
+<script type="text/javascript">
+  var clipboard = new ClipboardJS('.copy-link');
+  clipboard.on('success', function(e) {
+
+    jQuery(function($) {
+      $('#toast-success').toast('show');
+    })
+    console.log(e);
+  });
+  clipboard.on('error', function(e) {
+
+    jQuery(function($) {
+      $('#toast-error').toast('show');
+    })
+    console.log(e);
+  });
+</script>
+
+<!-- Initialize BS 4 tool tips -->
+
+<script src="/assets/js/tooltips.js"></script>
+
+<!-- Search bar icon JS -->
+
+<script src="/assets/js/search_icon.js"></script>
+
+<!-- BS Spinner JS -->
+
+<script src="/assets/js/spinner.js"></script>
+
+{% if v and v.referral_count %}
+<!-- Ruqqus Dark Mode Toggle -->
+<script src="/assets/js/dark_mode.js"></script>
+{% endif %}
+
+{% block enlargeThumbJS %}
+{% endblock %}
+
+{% block embedJS %}
+{% endblock %}
+
+{% block formatJS %}
+{% endblock %}
 
 </body>
 
-
 </html>
-

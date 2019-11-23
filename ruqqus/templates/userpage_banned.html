@@ -1,6 +1,108 @@
-{% extends "userpage.html" %}
+{% extends "default.html" %}
+
+{% block pagetype %}userpage{% endblock %}
+
+{% block enlargeThumbJS %}
+<script src="/assets/js/enlarge_thumb.js"></script>
+{% endblock %}
+
+{% block fixedMobileBarJS %}
+    <script>
+    var prevScrollpos = window.pageYOffset;
+    window.onscroll = function () {
+      var currentScrollPos = window.pageYOffset;
+      if (prevScrollpos > currentScrollPos) {
+        document.getElementById("filter-bar-mobile").style.top = "48px";
+      } 
+      else if (currentScrollPos <= 125) {
+        document.getElementById("filter-bar-mobile").style.top = "48px";
+      }
+      else {
+        document.getElementById("filter-bar-mobile").style.top = "-98px";
+        document.getElementById("dropdownMenuSortBy").classList.remove('show');
+        document.getElementById("dropdownMenuFrom").classList.remove('show');
+      }
+      prevScrollpos = currentScrollPos;
+    }
+  </script>
+{% endblock %}
+
+{% block title %}
+<title>{{ u.username }}</title>
+<meta name="description" content="[banned]">
+{% endblock %}
+
+{% block sidebarblock %}
+<div class="sidebar-section sidebar-profile-basic">
+  <div class="body">
+    <h1 class="h6 d-inline-block mb-0 mr-2">@{{ u.username }}</h1>
+  </div>
+</div>
+{% endblock %}
+
+{% block adminpanel %}
+{% if v.admin_level >=3 and v.admin_level > u.admin_level %}
+{% if u.is_banned %}
+<form action="/api/unban_user/{{ u.id }}" method="post">
+  <input type="hidden" name="formkey", value="{{ v.formkey }}">
+  <input type="submit" class="btn btn-success" value="Unban user">
+</form>
+{% else %}
+<form action="/api/ban_user/{{ u.id }}", method="post">
+  <input type="hidden" name="formkey", value="{{ v.formkey }}">
+  <input type="submit" class="btn btn-warning" value="Ban user">
+</form>
+{% endif %}
+{% endif %}
+{% if v.admin_level >=4 and v.admin_level > u.admin_level %}
+<table>
+ <tr>
+  <th>Key</th>
+  <th>Value</th>
+</tr>
+<tr>
+  <td>Account Creation IP</td>
+  <td>{{ u.creation_ip }}</td>
+</tr>
+</table>
+{% endif %}
+{% endblock %}
 
 {% block content %}
-<h1>{{ u.username }}</h1>
-<p><span class="red"><b>[This user is banned.]</b></span></p>
+<!-- Post filters bar visible only on medium devices or larger-->
+
+<div class="row fixed-top bg-white border-0 shadow d-inline-flex d-md-none p-3" id="filter-bar-mobile" style="z-index: 100; top: 48px; transition: top 0.3s ease 0s;">
+
+  <div class="col">
+
+  </div>
+
+</div>
+
+<div class="flex-row tab-bar sticky d-none d-md-flex">
+
+
+</div>
+
+<div class="row no-gutters">
+
+  <div class="col-12">
+
+    <div class="text-center py-7 py-md-8">
+
+      <i class="fad fa-gavel text-muted mb-5" style="font-size: 5rem;"></i>
+
+
+      <div class="font-weight-bold text-muted">Banned!</div>
+      <div class="text-small text-muted">@{{ u.username }} was banned.</div>
+	{% if u.ban_reason %}
+	<div class="text-small text-muted">Reason: {{ u.ban_reason }}</div>
+	{% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pagenav %}
 {% endblock %}

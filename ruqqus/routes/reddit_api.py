@@ -22,10 +22,14 @@ def api_get_reddit_auth(v):
 @auth_required
 def api_redditredirect(v):
 
+    if v.reddit_username:
+        return render_template("settings.html", v=v, error=f"You are already linked to the reddit account /u/{v.reddit_username}.")
+
     #check session id
     if not request.args.get("state")==session["session_id"]:
-        return render_template("settings.html", v=v, error="Invalid token. Please refresh this page and try again.")
+        return render_template("settings.html", v=v, error="Invalid token. Please close this page and try again later.")
 
+        
     try:
         r.auth.authorize(request.args.get("code"))
         name = r.user.me().name
@@ -41,7 +45,16 @@ def api_redditredirect(v):
         return render_template("settings.html", v=v, error=f"The reddit account {name} is already tied to a different Ruqqus account.")
     
     v.reddit_username = name
+
+    #assign reddit badge
+    reddit_badge = Badge(user_id=v.id,
+                         badge_id=5,
+                         url=f"https://reddit.com/user/{name}",
+                         description=f"/u/{name}"
+                         )
+    
     db.add(v)
+    db.add(reddit_badge)
     db.commit()
 
     return render_template("settings.html", v=v, msg=f"Reddit account {name} successfully linked.")
@@ -52,9 +65,15 @@ def api_redditredirect(v):
 def api_del_reddit_name(v):
 
     if not v.reddit_username:
-        render_template("settings.html", v=v, error=f"You didn't have a reddit account to un-link.")
+        render_template("settings_profile.html", v=v, error=f"You didn't have a reddit account to un-link.")
 
     v.reddit_username=None
+
+    #delete reddit badge
+    for badge in v.badges:
+        if badge.type==5:
+            db.delete(badge)
+            
     db.add(v)
     db.commit()
-    return render_template("settings.html", v=v, msg=f"Reddit account successfully un-linked.")
+    return render_template("settings_profile.html", v=v, msg=f"Reddit account successfully un-linked.")

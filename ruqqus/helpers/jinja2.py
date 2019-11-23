@@ -1,18 +1,14 @@
 import time
 
-from ruqqus.__main__ import app, db
-from ruqqus.classes import IP, User
+from sqlalchemy import text
 
-@app.template_filter("users_here")
-def users_here(x):
+from ruqqus.classes.user import User
+from ruqqus.__main__ import app, db, cache
 
-    now=time.time()
 
-    cutoff=now-300
-
-    return len(db.query(User).join(IP).filter(IP.created_utc>=cutoff).all())
 
 @app.template_filter("total_users")
+@cache.memoize(timeout=60)
 def total_users(x):
 
-    return len(db.query(User).filter_by(is_banned=False).all())
+    return db.query(User).filter_by(is_banned=0).count()
