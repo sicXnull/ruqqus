@@ -1,10 +1,10 @@
-from flask import render_template, request
+from flask import render_template, request, abort
 import time
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
 import math
 from urllib.parse import urlparse
-from random import randint
+import random
 
 from ruqqus.helpers.base36 import *
 from ruqqus.helpers.lazy import lazy
@@ -12,6 +12,7 @@ from ruqqus.__main__ import Base, db, cache
 from .user import User
 from .votes import Vote
 from .domains import Domain
+from .flags import Flag
 
 class Submission(Base):
 
@@ -21,6 +22,7 @@ class Submission(Base):
     author_id = Column(BigInteger, ForeignKey(User.id))
     title = Column(String(500), default=None)
     url = Column(String(500), default=None)
+    edited_utc = Column(BigInteger, default=0)
     created_utc = Column(BigInteger, default=0)
     is_banned = Column(Boolean, default=False)
     is_deleted=Column(Boolean, default=False)
@@ -32,6 +34,9 @@ class Submission(Base):
     body_html=Column(String(2200), default="")
     embed_url=Column(String(256), default="")
     domain_ref=Column(Integer, ForeignKey("domains.id"))
+    flags=relationship("Flag", lazy="dynamic", backref="submission")
+    is_approved=Column(Integer, default=0)
+    approved_utc=Column(Integer, default=0)
 
 
     #These are virtual properties handled as postgres functions server-side
@@ -41,6 +46,10 @@ class Submission(Base):
     downs=Column(Integer, server_default=FetchedValue())
     age=Column(Integer, server_default=FetchedValue())
     comment_count=Column(Integer, server_default=FetchedValue())
+    flag_count=Column(Integer, server_default=FetchedValue())
+    score=Column(Float, server_default=FetchedValue())
+    rank_hot=Column(Float, server_default=FetchedValue())
+    rank_fiery=Column(Float, server_default=FetchedValue())
     
 
     def __init__(self, *args, **kwargs):
@@ -55,10 +64,6 @@ class Submission(Base):
     def __repr__(self):
         return f"<Submission(id={self.id})>"
 
-    @property
-    @cache.memoize(timeout=60)
-    def rank_hot(self):
-        return (self.ups-self.downs)/(((self.age+100000)/6)**(1/3))
 
     @property
     #@cache.memoize(timeout=60)
@@ -69,15 +74,6 @@ class Submission(Base):
         return db.query(Domain).filter_by(id=self.domain_ref).first()
 
 
-    @property
-    @cache.memoize(timeout=60)
-    def rank_fiery(self):
-        return (math.sqrt(self.ups * self.downs))/(((self.age+100000)/6)**(1/3))
-
-    @property
-    @cache.memoize(timeout=60)
-    def score(self):
-        return self.ups-self.downs
     @property
     @cache.memoize(timeout=60)
     def score_percent(self):
@@ -102,12 +98,8 @@ class Submission(Base):
 
         #check for banned
         if self.is_banned:
-            if v:
-                if v.admin_level:
-                    template="submission.html"
-
-                else: 
-                    template="submission_banned.html"
+            if v and v.admin_level>=3:
+                template="submission.html"
             else:
                 template="submission_banned.html"
         else:
@@ -118,11 +110,7 @@ class Submission(Base):
         self.tree_comments(comment=comment)
         
         #return template
-
-        if self.domain_obj:
-
-            print(f"anon exempt policy: {self.domain_obj.anon_free_embed}")
-        return render_template(template, v=v, p=self, sort_method=request.args.get("sort","Hot").capitalize())
+        return render_template(template, v=v, p=self, sort_method=request.args.get("sort","Hot").capitalize(), linked_comment=comment)
 
     @property
     @lazy
@@ -146,7 +134,7 @@ class Submission(Base):
         real=self.score
         a=math.floor(real*(1-k))
         b=math.ceil(real*(1+k))
-        return randint(a,b)        
+        return random.randint(a,b)        
 
     def tree_comments(self, comment=None):
 
@@ -187,6 +175,11 @@ class Submission(Base):
             comments=self.comments.order_by(text("comments.created_utc")).all()
         elif sort_type=="disputed":
             comments=self.comments.order_by(text("comments.rank_fiery ASC")).all()
+        elif sort_type=="random":
+            c=self.comments.all()
+            comments=random.sample(c, k=len(c))
+        else:
+            abort(422)
 
 
 
@@ -221,9 +214,50 @@ class Submission(Base):
         else:
             years=now.tm_year-ctd.tm_year
             return f"{years} year{'s' if years>1 else ''} ago"
+
+    @property
+    def edited_string(self):
+
+        age=int(time.time())-self.edited_utc
+
+        if age<60:
+            return "just now"
+        elif age<3600:
+            minutes=int(age/60)
+            return f"{minutes} minute{'s' if minutes>1 else ''} ago"
+        elif age<86400:
+            hours=int(age/3600)
+            return f"{hours} hour{'s' if hours>1 else ''} ago"
+        elif age<2592000:
+            days=int(age/86400)
+            return f"{days} day{'s' if days>1 else ''} ago"
+
+        now=time.gmtime()
+        ctd=time.gmtime(self.created_utc)
+        months=now.tm_mon-ctd.tm_mon+12*(now.tm_year-ctd.tm_year)
+
+        if months < 12:
+            return f"{months} month{'s' if months>1 else ''} ago"
+        else:
+            years=now.tm_year-ctd.tm_year
+            return f"{years} year{'s' if years>1 else ''} ago"
         
 
     @property
     def created_date(self):
-
         return time.strftime("%d %B %Y", time.gmtime(self.created_utc))
+
+    @property
+    def edited_date(self):
+        return time.strftime("%d %B %Y", time.gmtime(self.edited_utc))
+
+    @property
+    def active_flags(self):
+        if self.is_approved:
+            return 0
+        else:
+            return self.flags.filter(Flag.created_utc>self.approved_utc).count()
+
+    @property
+    def approved_by(self):
+        return db.query(User).filter_by(id=self.is_approved).first()

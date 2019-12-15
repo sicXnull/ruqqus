@@ -22,22 +22,24 @@
   <!-- Font Awesome -->
   <script src="https://kit.fontawesome.com/e76eba0350.js"></script>
 
-  <script>
-    var prevScrollpos = window.pageYOffset;
-    window.onscroll = function () {
-      var currentScrollPos = window.pageYOffset;
-      if (prevScrollpos > currentScrollPos) {
-        document.getElementById("filter-bar-mobile").style.top = "49px";
-      } else {
-        document.getElementById("filter-bar-mobile").style.top = "-98px";
-        document.getElementById("dropdownMenuSortBy").classList.remove('show');
-        document.getElementById("dropdownMenuFrom").classList.remove('show');
-      }
-      prevScrollpos = currentScrollPos;
+<script>
+  var prevScrollpos = window.pageYOffset;
+  window.onscroll = function () {
+    var currentScrollPos = window.pageYOffset;
+    if (prevScrollpos > currentScrollPos) {
+      document.getElementById("fixed-bar-mobile").style.top = "49px";
+    } 
+    else if (currentScrollPos <= 125) {
+      document.getElementById("fixed-bar-mobile").style.top = "49px";
     }
-
-
-  </script>
+    else {
+      document.getElementById("fixed-bar-mobile").style.top = "-49px";
+      document.getElementById("dropdownMenuSortBy").classList.remove('show');
+      document.getElementById("dropdownMenuFrom").classList.remove('show');
+    }
+    prevScrollpos = currentScrollPos;
+  }
+</script>
 
 </head>
 
@@ -63,7 +65,7 @@
 
   <div class="container px-0 px-md-3">
     <div class="row justify-content-around mx-lg-5 no-gutters">
-      <div class="col bg-white shadow-sm rounded-md h-100 p-3">
+      <div class="col bg-white rounded-md h-100 p-3">
 
       {{ content }}
 

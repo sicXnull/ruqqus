@@ -76,7 +76,7 @@
           <h1 class="h3">Inbox</h1>
         </div>
 
-        <div class="bg-white shadow-sm rounded">
+        <div class="bg-white border rounded">
 
           <!-- Inbox -->
 
@@ -181,12 +181,18 @@
       </div>
     </footer>
 
+    {% include "flag_post_modal.html" %}
+    {% include "flag_comment_modal.html" %}
+
     {% include "bootstrap.html" %}
 
     <script src="/assets/js/collapse.js"></script>
 
     {% if v %}
     <script src="/assets/js/comment_form.js"></script>
+
+    <!-- Ruqqus Flag Comment & Submission -->
+    <script src="/assets/js/flag.js"></script>
     {% endif %}
 
     <!-- Initialize BS 4 tool tips -->

@@ -11,6 +11,7 @@ from ruqqus.__main__ import Base, db, cache
 from .user import User
 from .submission import Submission
 from .votes import CommentVote
+from .flags import CommentFlag
 
 class Comment(Base):
 
@@ -27,12 +28,16 @@ class Comment(Base):
     body_html = Column(String)
     distinguish_level=Column(Integer, default=0)
     is_deleted = Column(Boolean, default=False)
+    is_approved = Column(Integer, default=0)
+    approved_utc=Column(Integer, default=0)
 
     #These are virtual properties handled as postgres functions server-side
     #There is no difference to SQLAlchemy, but they cannot be written to
     ups = Column(Integer, server_default=FetchedValue())
     downs=Column(Integer, server_default=FetchedValue())
     age=Column(Integer, server_default=FetchedValue())
+    flags=relationship("CommentFlag", lazy="dynamic", backref="comment")
+    flag_count=Column(Integer, server_default=FetchedValue())
 
     def __init__(self, *args, **kwargs):
                    
@@ -121,7 +126,7 @@ class Comment(Base):
         if self.replies==[]:
             return False
 
-        if any([not x.is_banned for x in self.replies]):
+        if any([not x.is_banned and not x.is_deleted for x in self.replies]):
             return True
 
         else:
@@ -176,7 +181,43 @@ class Comment(Base):
             years=now.tm_year-ctd.tm_year
             return f"{years} year{'s' if years>1 else ''} ago"
 
+    @property
+    def edited_string(self):
 
+        if not self.edited_timestamp:
+            return None
+
+        age=int(time.time()-self.edited_timestamp)
+
+        if age<60:
+            return "just now"
+        elif age<3600:
+            minutes=int(age/60)
+            return f"{minutes} minute{'s' if minutes>1 else ''} ago"
+        elif age<86400:
+            hours=int(age/3600)
+            return f"{hours} hour{'s' if hours>1 else ''} ago"
+        elif age<2592000:
+            days=int(age/86400)
+            return f"{days} day{'s' if days>1 else ''} ago"
+
+        now=time.gmtime()
+        ctd=time.gmtime(self.created_utc)
+        months=now.tm_mon-ctd.tm_mon+12*(now.tm_year-ctd.tm_year)
+
+        if months < 12:
+            return f"{months} month{'s' if months>1 else ''} ago"
+        else:
+            years=now.tm_year-ctd.tm_year
+            return f"{years} year{'s' if years>1 else ''} ago"
+
+    @property
+    def active_flags(self):
+        if self.is_approved:
+            return 0
+        else:
+            return self.flag_count
+        
 class Notification(Base):
 
     __tablename__="notifications"

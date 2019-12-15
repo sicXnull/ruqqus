@@ -12,13 +12,13 @@
   window.onscroll = function () {
     var currentScrollPos = window.pageYOffset;
     if (prevScrollpos > currentScrollPos) {
-      document.getElementById("filter-bar-mobile").style.top = "48px";
+      document.getElementById("fixed-bar-mobile").style.top = "49px";
     } 
     else if (currentScrollPos <= 125) {
-      document.getElementById("filter-bar-mobile").style.top = "48px";
+      document.getElementById("fixed-bar-mobile").style.top = "49px";
     }
     else {
-      document.getElementById("filter-bar-mobile").style.top = "-98px";
+      document.getElementById("fixed-bar-mobile").style.top = "-49px";
       document.getElementById("dropdownMenuSortBy").classList.remove('show');
       document.getElementById("dropdownMenuFrom").classList.remove('show');
     }
@@ -37,7 +37,7 @@
   <div class="body">
     <h1 class="h6 d-inline-block mb-0" style="color:#{{ u.color }}">@{{ u.username }}</h1>
     <span>
-      {% if u.admin_level>=3 %}<i class="fad fa-badge-check text-primary ml-1" data-toggle="tooltip" data-placement="bottom" title="Admin"></i>{% endif %}
+      {% if u.admin_level %}<i class="fad fa-shield text-admin ml-1" data-toggle="tooltip" data-placement="bottom" title="Admin"></i>{% endif %}
       {% if u.real_id %}<span class="badge badge-pill text-white badge-info">{{ u.real_id }}</span>{% endif %}
     </span>
     <div class="profile-actions d-inline-block float-right">
@@ -81,12 +81,12 @@
   <div><a class="btn btn-secondary btn-block btn-sm mb-3" href="/settings/profile#bio">Update bio</a></div>
   {% endif %}
   {% endif %}
-  <div class="text-muted text-small"><i class="fas fa-medal mr-2"></i>{{ u.karma }} Rep</div>
-  <div class="text-muted text-small mt-2"><i class="fas fa-feather-alt text-muted mr-2"></i>{{ u.post_count }} Post{{ 's' if u.post_count!=1 else '' }}
+  <div class="text-muted text-small"><i class="fas fa-medal fa-width-rem text-muted mr-2"></i>{{ u.karma }} Rep</div>
+  <div class="text-muted text-small mt-2"><i class="fas fa-feather-alt fa-width-rem text-muted mr-2"></i>{{ u.post_count }} Post{{ 's' if u.post_count!=1 else '' }}
   </div>
-  <div class="text-muted text-small mt-2"><i class="fas fa-comment-dots text-muted mr-2"></i>{{ u.comment_count }} Comment{{ 's' if u.comment_count !=1 else '' }}
+  <div class="text-muted text-small mt-2"><i class="fas fa-comment-dots fa-width-rem text-muted mr-2"></i>{{ u.comment_count }} Comment{{ 's' if u.comment_count !=1 else '' }}
   </div>
-  <div class="text-muted text-small mt-2"><i class="fas fa-birthday-cake text-muted mr-2"></i>User
+  <div class="text-muted text-small mt-2"><i class="fas fa-birthday-cake fa-width-rem text-muted mr-2"></i>User
     since {{ u.created_date }}
   </div>
 </div>
@@ -110,6 +110,7 @@
 {% endblock %}
 
 {% block adminpanel %}
+<p>user id: {{ u.base36id }}</p>
 {% if v.admin_level >=3 and v.admin_level > u.admin_level %}
 {% if u.is_banned %}
 <form action="/api/unban_user/{{ u.id }}" method="post">
@@ -119,7 +120,7 @@
 {% else %}
 <form action="/api/ban_user/{{ u.id }}", method="post">
   <input type="hidden" name="formkey", value="{{ v.formkey }}">
-  <input type="text" name="reason">
+  <input id="user-ban-reason" type="text" class="form-control" name="reason" placeholder="Ban Reason">
   <input type="submit" class="btn btn-warning" value="Ban user">
 </form>
 {% endif %}
@@ -131,17 +132,86 @@
 {% if v.admin_level >=4 %}
 <p>Alts:</p>
 <ul>
-{% for account in u.alts %}
-<li><a href="{{ account.permalink }}">@{{ account.username }}</a></li>
-{% endfor %}
+  {% for account in u.alts %}
+  <li><a href="{{ account.permalink }}">@{{ account.username }}</a></li>
+  {% endfor %}
 </ul>
 {% endif %}
 {% endblock %}
 
-{% block content %}
-<!-- Post filters bar visible only on medium devices or larger-->
+{% block sidebarLeftblock %}
 
-<div class="row fixed-top bg-white border-0 shadow d-inline-flex d-md-none p-3" id="filter-bar-mobile" style="z-index: 100; top: 48px; transition: top 0.3s ease 0s;">
+{% if not v %}
+<div class="sidebar-section sidebar-alert">
+<div class="body">
+    <img src="/assets/images/illustrations/ruckus.png" class="empty-state-img mb-3" alt="empty state">
+    <h5>Join the discourse.</h5>
+    <p class="text-small">Internet freedom of speech has a new home. Use your voice. Make a Ruqqus.</p>
+    <a href="/signup" class="btn btn-primary btn-block">Sign up</a>
+  </div>
+</div>
+{% endif %}
+
+{% if v and v.id == u.id %}
+
+<div class="sidebar-section sidebar-dashboard">
+  <div class="title">Dashboard</div>
+  <div class="body">
+    <ul class="no-bullets dashboard-list pl-0">
+      <li class="dashboard-item">
+        <a class="dashboard-link" href="{{ v.permalink }}"><i class="fas fa-user-circle fa-width-rem"></i>Profile</a>
+      </li>
+      <li class="dashboard-item">
+        <a class="dashboard-link " href="/settings"><i class="fas fa-cog fa-width-rem"></i>Settings</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+{% endif %}
+
+{% if v and v.id != u.id %}
+
+<div class="sidebar-section sidebar-dashboard">
+  <div class="title">Dashboard</div>
+  <div class="body">
+    <ul class="no-bullets filter-list pl-0">
+      <li class="filter-item">
+        <a class="filter-link " href="{{ v.permalink }}"><i class="fas fa-feather-alt fa-width-rem"></i>Your posts</a>
+      </li>
+      <li class="filter-item">
+        <a class="filter-link " href="{{ v.permalink }}/comments"><i class="fas fa-comment-dots fa-width-rem"></i>Your comments</a> 
+      </li>
+      <li class="filter-item">
+        <a class="filter-link " href="/settings"><i class="fas fa-cog fa-width-rem"></i>Settings</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+{% endif %}
+
+<div class="sidebar-section sidebar-filters sticky-63">
+  <div class="title">Viewing</div>
+  <div class="body">
+    <ul class="no-bullets filter-list pl-0">
+      <li class="filter-item">
+        <a class="filter-link active" href="{{ u.permalink }}"><i class="fas fa-feather-alt fa-width-rem"></i>Posts</a>
+      </li>
+      <li class="filter-item">
+        <a class="filter-link" href="{{ u.permalink }}/comments"><i class="fas fa-comment-dots fa-width-rem"></i>Comments</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block content %}
+
+<!-- Post filters bar visible only on small devices-->
+
+<div class="row fixed-top bg-white border-md d-inline-flex d-lg-none p-3" id="fixed-bar-mobile" style="z-index: 100; top: 49px; transition: top 0.3s ease 0s;">
 
   <div class="col">
 
@@ -181,7 +251,7 @@
 </div>
 
 <div class="row justify-content-around mx-lg-5 d-block d-lg-none no-gutters">
-  <div class="col bg-light border-bottom rounded-md p-3">
+  <div class="col border-bottom rounded-md p-3">
     <div class="profile-details">
       <div class="media">
        <div class="profile-pic profile-pic-75 mr-3 mt-0" style="background-color:#{{ u.color }}">
@@ -191,7 +261,7 @@
         <h1 class="h6 d-inline-block">@{{ u.username }}</h1>
 
         <span>
-          {% if u.admin_level>=3 %}<i class="fad fa-badge-check text-primary ml-1" data-toggle="tooltip" data-placement="bottom" title="Admin"></i>{% endif %}
+          {% if u.admin_level %}<i class="fad fa-shield text-admin ml-1" data-toggle="tooltip" data-placement="bottom" title="Admin"></i>{% endif %}
           {% if u.real_id %}<span class="badge badge-pill text-white badge-info">{{ u.real_id }}</span>{% endif %}
         </span>
 
@@ -244,8 +314,8 @@
 </div>
 </div>
 
-<div class="row border-bottom d-block d-lg-none bg-light no-gutters">
-<div class="col">
+<div class="row border-bottom border-md-0 d-block d-lg-none no-gutters">
+  <div class="col">
     <ul class="list-inline d-flex justify-content-around text-center py-2 mb-0">
       <li class="list-inline-item">
         <span class="text-small font-weight-bold">{{ u.karma }}</span>
@@ -263,7 +333,7 @@
   </div>
 </div>
 
-<div class="flex-row tab-bar sticky d-none d-md-flex">
+<div class="flex-row tab-bar sticky d-none">
 
   <ul class="nav post-nav mr-auto">
     <li class="nav-item">
@@ -308,7 +378,7 @@
 
 {% block pagenav %}
 <nav aria-label="Page navigation">
-  <ul class="pagination pagination-sm py-3 pl-3 mb-0">
+  <ul class="pagination pagination-sm mb-0">
     {% if page>1 %}
     <li class="page-item">
       <small><a class="page-link" href="?page={{ page-1 }}" tabindex="-1">Prev</a></small>

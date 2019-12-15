@@ -2,11 +2,12 @@ import time
 from ruqqus.helpers.wrappers import *
 from flask import *
 
-from ruqqus.__main__ import app
+from ruqqus.__main__ import app, limiter
 from ruqqus.classes import *
 
 #take care of misc pages that never really change (much)
 @app.route('/assets/<path:path>')
+@limiter.exempt
 def static_service(path):
     return send_from_directory('./assets', path)
 
@@ -61,4 +62,7 @@ def about_path(path):
 @app.route("/help/<path:path>")
 @auth_desired
 def help_path(path, v):
-    return render_template(safe_join("help", path+".html"), v=v)
+    try:
+        return render_template(safe_join("help", path+".html"), v=v)
+    except jinja2.exceptions.TemplateNotFound:
+        abort(404)

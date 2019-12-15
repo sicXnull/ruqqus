@@ -45,6 +45,8 @@ class User(Base):
     energy = deferred(Column(Integer, server_default=FetchedValue()))
     referral_count=deferred(Column(Integer, server_default=FetchedValue()))
 
+
+
     def __init__(self, **kwargs):
 
         if "password" in kwargs:
@@ -178,7 +180,7 @@ class User(Base):
     
     @property
     def url(self):
-        return f"/u/{self.username}"
+        return f"/@{self.username}"
 
     @property
     def permalink(self):

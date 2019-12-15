@@ -76,7 +76,7 @@ def prep_database():
     c.execute("""
     CREATE OR REPLACE FUNCTION rank_hot(submissions)
     RETURNS float AS '
-      SELECT CAST(($1.ups - $1.downs) AS float)/((CAST(($1.age+1000) AS FLOAT)/6.0)^(1.0/3.0))
+      SELECT CAST(($1.ups - $1.downs) AS float)/((CAST(($1.age+5000) AS FLOAT)/100.0)^(0.7))
       '
     LANGUAGE SQL
     IMMUTABLE
@@ -87,7 +87,7 @@ def prep_database():
     c.execute("""
     CREATE OR REPLACE FUNCTION rank_fiery(submissions)
     RETURNS float AS '
-      SELECT SQRT(CAST(($1.ups * $1.downs) AS float))/((CAST(($1.age+1000) AS FLOAT)/6.0)^(1.0/3.0))
+      SELECT SQRT(CAST(($1.ups * $1.downs) AS float))/((CAST(($1.age+5000) AS FLOAT)/100.0)^(0.7))
       '
     LANGUAGE SQL
     IMMUTABLE
@@ -113,12 +113,28 @@ def prep_database():
     c.execute("""
     CREATE OR REPLACE FUNCTION rank_activity(submissions)
     RETURNS float AS '
-      SELECT CAST($1.comment_count AS float)/((CAST(($1.age+1000) AS FLOAT)/6.0)^(1.0/3.0))
+      SELECT CAST($1.comment_count AS float)/((CAST(($1.age+5000) AS FLOAT)/100.0)^(0.7))
+    '
+    LANGUAGE SQL
+    IMMUTABLE
+    RETURNS NULL ON NULL INPUT;
+    """)
+    
+    #flag count
+    c.execute("""
+    CREATE OR REPLACE FUNCTION flag_count(submissions)
+    RETURNS bigint AS '
+      SELECT COUNT(*)
+      FROM flags
+      JOIN users ON flags.user_id=users.id
+      WHERE post_id=$1.id
+      AND users.is_banned=0
       '
     LANGUAGE SQL
     IMMUTABLE
     RETURNS NULL ON NULL INPUT;
     """)
+    
 
     #=========COMMENTS========
 
@@ -167,6 +183,21 @@ def prep_database():
     RETURNS NULL ON NULL INPUT;
     """)
 
+    #flag count
+    c.execute("""
+    CREATE OR REPLACE FUNCTION flag_count(comments)
+    RETURNS bigint AS '
+      SELECT COUNT(*)
+      FROM commentflags
+      JOIN users ON commentflags.user_id=users.id
+      WHERE comment_id=$1.id
+      AND users.is_banned=0
+      '
+    LANGUAGE SQL
+    IMMUTABLE
+    RETURNS NULL ON NULL INPUT;
+    """)
+    
 
     #===========USERS=============
 

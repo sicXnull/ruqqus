@@ -4,6 +4,7 @@ import hmac
 from os import environ
 import re
 import random
+from urllib.parse import urlencode
 
 from ruqqus.classes import *
 from ruqqus.helpers.wrappers import *
@@ -18,7 +19,7 @@ from ruqqus.__main__ import app, limiter
 
 valid_username_regex=re.compile("^\w{5,25}$")
 valid_password_regex=re.compile("^.{8,}$")
-valid_email_regex=re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
+#valid_email_regex=re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
 
 #login form
 @app.route("/login", methods=["GET"])
@@ -62,10 +63,14 @@ def check_for_alts(current_id):
 @app.route("/login", methods=["POST"])
 @limiter.limit("6/minute")
 def login_post():
-
+    
     username=request.form.get("username")
 
-    account = db.query(User).filter_by(email=username).first()
+    if "@" in username:
+        account=db.query(User).filter(User.email.ilike(username)).first()
+    else:
+        account=db.query(User).filter(User.username.ilike(username)).first()
+
     if not account:
         time.sleep(random.uniform(0,2))
         return render_template("login.html", failed=True, i=random_image())
@@ -148,6 +153,8 @@ def sign_up_get(v):
 
     redir = request.args.get("redirect",None)
 
+    error= request.args.get("error", None)
+
 
 
     return render_template("sign_up.html",
@@ -155,7 +162,8 @@ def sign_up_get(v):
                            now=now,
                            i=random_image(),
                            redirect=redir,
-                           ref_user=ref_user
+                           ref_user=ref_user,
+                           error=error
                            )
 
 #signup api
@@ -182,34 +190,32 @@ def sign_up_post(v):
     
     now=int(time.time())
 
+    username=request.form.get("username")
+
     #define function that takes an error message and generates a new signup form
     def new_signup(error):
-        
-        #Reset tokens and return to signup form
-        
-        token = token_hex(16)
-        session["signup_token"]=token
-        now=int(time.time())
-        agent=request.headers.get("User-Agent", None)
 
-        new_formkey_hashstr=str(now)+submitted_token+agent
-        new_formkey = hmac.new(key=bytes(environ.get("MASTER_KEY"), "utf-16"),
-                               msg=bytes(new_formkey_hashstr, "utf-16")
-                               ).hexdigest()
+        args={"error":error}
+        if request.form.get("referred_by"):
+            user=db.query(User).filter_by(id=request.form.get("referred_by")).first()
+            if user:
+                args["ref"]=user.username
         
-        return render_template("sign_up.html", formkey=new_formkey, now=now, error=error, i=random_image())
+        
+        return redirect(f"/signup?{urlencode(args)}")
 
     #check for tokens
-    if now-int(form_timestamp)>120:
-        print("form expired")
-        return new_signup("There was a problem. Please refresh the page and try again.")
-    elif now-int(form_timestamp)<5:
-        print("slow down!")
-        return new_signup("There was a problem. Please refresh the page and try again.")
+##    if now-int(form_timestamp)>120:
+##        print(f"signup fail - {username } - form expired")
+        
+        return new_signup("There was a problem. Please try again.")
+    if now-int(form_timestamp)<5:
+        print(f"signup fail - {username } - too fast")
+        return new_signup("There was a problem. Please try again.")
 
     if not hmac.compare_digest(correct_formkey, form_formkey):
-        print(f"{request.form.get('username')} - mismatched formkeys")
-        return new_signup("There was a problem. Please refresh the page and try again.")
+        print(f"signup fail - {username } - mismatched formkeys")
+        return new_signup("There was a problem. Please try again.")
 
     #check for matched passwords
     if not request.form.get("password") == request.form.get("password_confirm"):
@@ -217,19 +223,25 @@ def sign_up_post(v):
 
     #check username/pass conditions
     if not re.match(valid_username_regex, request.form.get("username")):
+        print(f"signup fail - {username } - mismatched passwords")
         return new_signup("Invalid username")
 
     if not re.match(valid_password_regex, request.form.get("password")):
+        print(f"signup fail - {username } - invalid password")
         return new_signup("Password must be 8 characters or longer")
 
-    if not re.match(valid_email_regex, request.form.get("email")):
-        return new_signup("That's not a valid email.")
+    #if not re.match(valid_email_regex, request.form.get("email")):
+    #    return new_signup("That's not a valid email.")
 
     #Check for existing acocunts
+    email=request.form.get("email")
+    if not email:
+        email=None
 
     if (db.query(User).filter(User.username.ilike(request.form.get("username"))).first()
-        or db.query(User).filter(User.email.ilike(request.form.get("email"))).first()):
-        return new_signup("An account with that username or email already exists.")       
+        or (email and db.query(User).filter(User.email.ilike(email)).first())):
+        print(f"signup fail - {username } - email already exists")
+        return new_signup("An account with that username or email already exists.")
     
     #success
     
@@ -242,9 +254,9 @@ def sign_up_post(v):
         
     #make new user
     try:
-        new_user=User(username=request.form.get("username"),
+        new_user=User(username=username,
                       password=request.form.get("password"),
-                      email=request.form.get("email"),
+                      email=email,
                       created_utc=int(time.time()),
                       creation_ip=request.remote_addr,
                       referred_by=ref_id
@@ -257,15 +269,17 @@ def sign_up_post(v):
     db.add(new_user)
     db.commit()
 
-    prebeta_badge=Badge(user_id=new_user.id,
+    #give a beta badge
+    beta_badge=Badge(user_id=new_user.id,
                         badge_id=1)
 
-    db.add(prebeta_badge)
+    db.add(beta_badge)
     db.commit()
 
     check_for_alts(new_user.id)
 
-    send_verification_email(new_user)
+    if email:
+        send_verification_email(new_user)
 
     session["user_id"]=new_user.id
     session["session_id"]=token_hex(16)
@@ -290,7 +304,7 @@ def post_forgot():
     username = request.form.get("username")
     email = request.form.get("email")
 
-    user = db.query(User).filter_by(username=username, email=email, is_activated=True).first()
+    user = db.query(User).filter(User.username.ilike(username), User.email.ilike(email), User.is_activated==True).first()
 
     if user:
         #generate url

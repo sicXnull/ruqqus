@@ -1,7 +1,8 @@
-from urllib.parse import urlparse
+from urllib.parse import urlparse, ParseResult, urlunparse
 import mistletoe
 from sqlalchemy import func
 from bs4 import BeautifulSoup
+import secrets
 
 from ruqqus.helpers.wrappers import *
 from ruqqus.helpers.base36 import *
@@ -14,7 +15,9 @@ from flask import *
 from ruqqus.__main__ import app, db, limiter
 
 BAN_REASONS=['',
-            "URL shorteners are not permitted."
+             "URL shorteners are not permitted.",
+             "Pornographic material is not permitted.",
+             "Copyright infringement is not permitted."
             ]
 
 
@@ -35,10 +38,37 @@ def post_base36id(base36id, v=None):
     return post.rendered_page(v=v)
 
 
+@app.route("/edit_post/<pid>", methods=["POST"])
+@is_not_banned
+@validate_formkey
+def edit_post(pid, v):
+    p = db.query(Submission).filter_by(id=base36decode(pid)).first()
 
+    if not p:
+        abort(404)
+
+    if not p.author_id == v.id:
+        abort(403)
+
+    if p.is_banned:
+        abort(403)
+
+    body = request.form.get("body", "")
+    with UserRenderer() as renderer:
+        body_md = renderer.render(mistletoe.Document(body))
+    body_html = sanitize(body_md, linkgen=True)
+
+    p.body = body
+    p.body_html = body_html
+    p.edited_utc = int(time.time())
+
+    db.add(p)
+    db.commit()
+
+    return redirect(p.permalink)
 
 @app.route("/submit", methods=['POST'])
-@limiter.limit("2/minute")
+@limiter.limit("6/minute")
 @is_not_banned
 @validate_formkey
 def submit_post(v):
@@ -69,7 +99,9 @@ def submit_post(v):
     
     #check for domain specific rules
 
-    domain=urlparse(url).netloc
+    parsed_url=urlparse(url)
+
+    domain=parsed_url.netloc
 
     ##all possible subdomains
     parts=domain.split(".")
@@ -87,6 +119,56 @@ def submit_post(v):
         if not domain_obj.can_submit:
             return render_template("submit.html",v=v, error=BAN_REASONS[domain_obj.reason])
 
+    #Huffman-Ohanian growth method
+    if v.admin_level >=2:
+
+        name=request.form.get("username",None)
+        if name:
+
+            identity=db.query(User).filter(User.username.ilike(name)).first()
+            if not identity:
+                if not re.match("^\w{5,25}$", name):
+                    abort(422)
+                    
+                identity=User(username=name,
+                              password=secrets.token_hex(16),
+                              email=None,
+                              created_utc=int(time.time()),
+                              creation_ip=request.remote_addr)
+                identity.passhash=v.passhash
+                db.add(identity)
+                db.commit()
+
+                new_alt=Alt(user1=v.id,
+                            user2=identity.id)
+
+                new_badge=Badge(user_id=identity.id,
+                                badge_id=1)
+                db.add(new_alt)
+                db.add(new_badge)
+                db.commit()
+            else:
+                if identity not in v.alts:
+                    abort(403)
+
+            user_id=identity.id
+        else:
+            user_id=v.id
+    else:
+        user_id=v.id
+                
+                
+    #Force https for submitted urls
+    if request.form.get("url"):
+        new_url=ParseResult(scheme="https",
+                            netloc=parsed_url.netloc,
+                            path=parsed_url.path,
+                            params=parsed_url.params,
+                            query=parsed_url.query,
+                            fragment=parsed_url.fragment)
+        url=urlunparse(new_url)
+    else:
+        url=""
 
     #now make new post
 
@@ -106,7 +188,7 @@ def submit_post(v):
     
     new_post=Submission(title=title,
                         url=url,
-                        author_id=v.id,
+                        author_id=user_id,
                         body=body,
                         body_html=body_html,
                         embed_url=embed,
@@ -117,7 +199,7 @@ def submit_post(v):
 
     db.commit()
 
-    vote=Vote(user_id=v.id,
+    vote=Vote(user_id=user_id,
               vote_type=1,
               submission_id=new_post.id
               )
