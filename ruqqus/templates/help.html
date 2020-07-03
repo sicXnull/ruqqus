@@ -1,59 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "docs_default.html" %}	
 
-<head>
+{% block sidebarblock %}{% endblock %}
 
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
+{% block title %}	
+<title>Ruqqus - Help</title>	
+<meta name="description" content="Ruqqus Help">	
+{% endblock %}	
 
-    <title>Ruqqus Rules</title>
+{% block sidebarLeftblock %}
+<div class="col sidebar d-none d-lg-block p-3">
 
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600&display=swap" rel="stylesheet">
+	<div class="sidebar-section">
+			<div class="title">Help</div>
+      <div class="body">
+	<a href="/">Back to Ruqqus</a>
+      </div>
+	</div>
 
-    <!-- Bootstrap core CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+	</div>
 
-    <!-- Font Awesome -->
-    <link href="/assets/fontawesome/css/all.css" rel="stylesheet"> <!--load all styles -->
+{% endblock %}
 
-    <!-- Ruqqus CSS -->
-    <link rel="stylesheet" href="/assets/style/main.css">
+{% block content %}	
+{% filter markdown %}	
+# Help	
 
-<script>
-function post(url, callback, errortext) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  var form = new FormData()
-  form.append("formkey", "{{ v.formkey }}");
-  xhr.withCredentials=true;
-  xhr.onload=callback
-  xhr.onerror=function(){alert(errortext)}
-  xhr.send(form);
-}
-function formkey() {
-  return '{{ v.formkey }}';
-}
-</script>
+## General Information	
 
-</head>
+* [About](/help/about)	
+* [FAQ](/help/faq)
+* [Meet the admins](/help/admins)
+* [Our third-party service providers](/help/services)	
+* [Guild Siege](/help/siege)
+* [Contact Ruqqus](/help/contact)
 
-<body id="article" data-spy="scroll" data-offset="75">
+## Account Cosmetics	
 
-    {% include "header.html" %}
-    <!-- Page Content -->
-    <div class="container">
+* [Badges](/help/badges)	
+* [Titles](/help/titles)	
 
-	{% block content %}
-	{% endblock %}
+## Ruqqus Policies	
 
-    </div>
+* [Terms of service](/help/terms)	
+* [Content Policy](/help/rules)	
+* [Privacy Policy](/help/privacy)	
+* [Legal Policies](/help/legal)	
 
-    {% include "footer_article.html" %}
-    {% include "bootstrap.html" %}
+## Legal Requests	
 
-</body>
+* [Submit a Legal Request](/legal)	
+* [Submit a DMCA takedown request](/help/dmca)	
+* [Submit a DMCA counter-request](/help/counter_dmca)	
 
-</html>
+## Press	
+
+* [Press Resources](/help/press)
+
+{% endfilter %}	
+{% endblock %}	

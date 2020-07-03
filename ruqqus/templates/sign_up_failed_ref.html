@@ -7,6 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="Sign up in under 27 seconds.">
     <meta name="author" content="">
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Ruqqus - Awesome Online Communities, Without Censorship" />
+    <meta property="og:site_name" content="ruqqus.com" />
+    <meta property="og:image" content="{{ '/assets/images/preview-images/ruqqus_og_image.png' | full_link }}" />
+    <meta property="og:url" content="https://ruqqus.com">
+    <meta property="og:description" name="description" content="Sign up now! Ruqqus is an open-source platform for online communities, free of censorship and moderator abuse by design.">
+    <meta property="og:author" name="author" content="@ruqqus" />
+    <meta property="og:site_name" content="ruqqus.com" />
+
+    <meta name="twitter:card" content="summary_large_image"/>
+    <meta name="twitter:site" content="@ruqqus">
+    <meta name="twitter:title" content="Ruqqus - Awesome Online Communities, Without Censorship" />
+    <meta name="twitter:creator" content="@ruqqus">
+    <meta name="twitter:description" content="Sign up now! Ruqqus is an open-source platform for online communities, free of censorship and moderator abuse by design." />
+    <meta name="twitter:image" content="{{ '/assets/images/preview-images/ruqqus_og_image.png' | full_link }}" />
+    <meta name="twitter:url" content="https://ruqqus.com" />
 
     <title>{% if ref_user %}{{ ref_user.username }} invites you to Ruqqus{% else %}Ruqqus - the open, free-speech social platform{% endif %}</title>
 
@@ -40,13 +56,13 @@
         <div class="collapse navbar-collapse" id="navbarResponsive">
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="#">About</a>
+                    <a class="nav-link" href="/help/about">About</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Terms</a>
+                    <a class="nav-link" href="/help/terms">Terms</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Contact</a>
+                    <a class="nav-link" href="mailto:info@ruqqus.com">Contact</a>
                 </li>
             </ul>
         </div>
@@ -106,15 +122,15 @@
 
     <!-- Clipboard Toast -->
 
-    <div class="toast clipboard" id="toast-success" style="position: fixed; bottom: 1.5rem; margin: 0 auto; left: 0; right: 0; width: 275px; z-index: 1000" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
-      <div class="toast-body bg-success text-center text-white">
-        <i class="fas fa-check-circle mr-2"></i>Link copied to clipboard
+    <div class="toast clipboard" id="toast-success" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
+      <div class="toast-body text-center">
+        <i class="fas fa-check-circle text-success mr-2"></i>Link copied to clipboard
     </div>
 </div>
 
-<div class="toast clipboard" id="toast-error" style="position: fixed; bottom: 1.5rem; margin: 0 auto; left: 0; right: 0; width: 275px; z-index: 1000" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
-  <div class="toast-body bg-danger text-center text-white">
-    <i class="fas fa-exclamation-circle mr-2"></i>Unable to copy link
+<div class="toast clipboard" id="toast-error" role="alert" aria-live="assertive" aria-atomic="true" data-animation="true" data-autohide="true" data-delay="5000">
+  <div class="toast-body text-center">
+    <i class="fas fa-exclamation-circle text-danger mr-2"></i>Unable to copy link
 </div>
 </div>
 
@@ -143,13 +159,9 @@
 });
 </script>
 
-<!-- Sign up script -->
+<!-- Ruqqus JS -->
 
-<script src="/assets/js/signup.js"></script>
-
-<!-- BS Spinner JS -->
-
-<script src="/assets/js/spinner.js"></script>
+<script src="/assets/js/all_js.js"></script>
 
 </body>
 

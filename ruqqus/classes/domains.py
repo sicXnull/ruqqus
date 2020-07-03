@@ -1,5 +1,10 @@
 from sqlalchemy import *
-from ruqqus.__main__ import Base, db, cache
+from ruqqus.__main__ import Base, cache
+
+reasons={
+	1: "URL shorteners are not allowed.",
+	3: "Piracy is not allowed."
+}
 
 class Domain(Base):
 
@@ -10,4 +15,8 @@ class Domain(Base):
     can_comment=Column(Boolean, default=False)
     reason=Column(String)
     show_thumbnail=Column(Boolean, default=False)
+    embed_function=Column(String(64), default=None)
     
+    @property
+    def reason_text(self):
+    	return reasons.get(self.reason)

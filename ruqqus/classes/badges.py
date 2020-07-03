@@ -2,7 +2,7 @@ from flask import render_template
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
 
-from ruqqus.__main__ import Base, db
+from ruqqus.__main__ import Base
 
 class BadgeDef(Base):
 
@@ -12,7 +12,10 @@ class BadgeDef(Base):
     name=Column(String(64))
     description=Column(String(64))
     icon=Column(String(64))
-
+    kind=Column(Integer, default=1)
+    rank=Column(Integer, default=1)
+    qualification_expr=Column(String(128), default=None)
+    
     def __repr__(self):
 
         return f"<BadgeDef(badge_id={self.id})>"
@@ -34,7 +37,7 @@ class Badge(Base):
     description=Column(String(64))
     url=Column(String(256))
     created_utc=Column(Integer)
-    badge=relationship("BadgeDef", uselist=False)
+    badge=relationship("BadgeDef", lazy="joined", innerjoin=True)
 
     def __repr__(self):
 
@@ -64,3 +67,12 @@ class Badge(Base):
     def rendered(self):
 
         return render_template("badge.html", b=self)
+
+    @property
+    def json(self):
+
+        return {'text':self.text,
+                'name':self.name,
+                'created_utc': self.created_utc,
+                'url':self.url
+                }

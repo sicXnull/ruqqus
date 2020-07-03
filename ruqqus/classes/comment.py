@@ -1,126 +1,138 @@
-from flask import render_template
+from flask import *
 import time
 from sqlalchemy import *
 from sqlalchemy.orm import relationship, deferred
+from sqlalchemy.ext.associationproxy import association_proxy
 from random import randint
 import math
-
+from .mix_ins import *
 from ruqqus.helpers.base36 import *
 from ruqqus.helpers.lazy import lazy
-from ruqqus.__main__ import Base, db, cache
-from .user import User
-from .submission import Submission
+from ruqqus.__main__ import Base, cache
 from .votes import CommentVote
 from .flags import CommentFlag
+from .badwords import *
 
-class Comment(Base):
+class CommentAux(Base):
+
+    __tablename__="comments_aux"
+
+    key_id=Column(Integer, primary_key=True)
+    id=Column(Integer, ForeignKey("comments.id"))
+    body = Column(String(10000), default=None)
+    body_html = Column(String(20000))
+    ban_reason=Column(String(256), default='')
+
+
+class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
 
     __tablename__="comments"
 
-    id = Column(BigInteger, primary_key=True)
-    author_id = Column(BigInteger, ForeignKey(User.id))
-    body = Column(String(2000), default=None)
-    parent_submission = Column(BigInteger, ForeignKey(Submission.id))
-    parent_fullname = Column(BigInteger) #this column is foreignkeyed to comment(id) but we can't do that yet as "comment" class isn't yet defined
-    created_utc = Column(BigInteger, default=0)
-    edited_timestamp = Column(BigInteger, default=0)
+    id = Column(Integer, primary_key=True)
+    comment_aux=relationship("CommentAux", lazy="joined", uselist=False, innerjoin=True, primaryjoin="Comment.id==CommentAux.id")
+    author_id = Column(Integer, ForeignKey("users.id"))
+    parent_submission = Column(Integer, ForeignKey("submissions.id"))
+    parent_fullname = Column(Integer) #this column is foreignkeyed to comment(id) but we can't do that yet as "comment" class isn't yet defined
+    created_utc = Column(Integer, default=0)
+    edited_utc = Column(Integer, default=0)
     is_banned = Column(Boolean, default=False)
-    body_html = Column(String)
     distinguish_level=Column(Integer, default=0)
     is_deleted = Column(Boolean, default=False)
     is_approved = Column(Integer, default=0)
     approved_utc=Column(Integer, default=0)
+    creation_ip=Column(String(64), default='')
+    score_disputed=Column(Float, default=0)
+    score_hot=Column(Float, default=0)
+    score_top=Column(Integer, default=1)
+    level=Column(Integer, default=0)
+    parent_comment_id=Column(Integer, ForeignKey("comments.id"))
+
+    over_18=Column(Boolean, default=False)
+    is_op=Column(Boolean, default=False)
+    is_offensive=Column(Boolean, default=False)
+    is_nsfl=Column(Boolean, default=False)
+
+    post=relationship("Submission")
+    flags=relationship("CommentFlag", lazy="subquery", backref="comment")
+    author=relationship("User", lazy="joined", innerjoin=True, primaryjoin="User.id==Comment.author_id")
+    board=association_proxy("post", "board")
 
     #These are virtual properties handled as postgres functions server-side
     #There is no difference to SQLAlchemy, but they cannot be written to
-    ups = Column(Integer, server_default=FetchedValue())
-    downs=Column(Integer, server_default=FetchedValue())
-    age=Column(Integer, server_default=FetchedValue())
-    flags=relationship("CommentFlag", lazy="dynamic", backref="comment")
-    flag_count=Column(Integer, server_default=FetchedValue())
+    ups = deferred(Column(Integer, server_default=FetchedValue()))
+    downs=deferred(Column(Integer, server_default=FetchedValue()))
+    is_public=Column(Boolean, server_default=FetchedValue())
+
+    score=deferred(Column(Integer, server_default=FetchedValue()))
+    
+
+    rank_fiery=deferred(Column(Float, server_default=FetchedValue()))
+    rank_hot=deferred(Column(Float, server_default=FetchedValue()))
+
+    flag_count=deferred(Column(Integer, server_default=FetchedValue()))
+
+    board_id=Column(Integer, server_default=FetchedValue())
+    
+    
 
     def __init__(self, *args, **kwargs):
                    
 
         if "created_utc" not in kwargs:
             kwargs["created_utc"]=int(time.time())
+
+        kwargs["creation_ip"]=request.remote_addr
             
-        for x in kwargs:
-            if x not in ["ups","downs","score","rank_hot","rank_fiery","age","comment_count"]:
-                self.__dict__[x]=kwargs[x]
+        super().__init__(*args, **kwargs)
                 
     def __repr__(self):
-        return f"<Comment(id={self.id})"
-        
+
+        return f"<Comment(id={self.id})>"
 
     @property
-    @cache.memoize(timeout=60)
-    def rank_hot(self):
-        return (self.ups-self.down)/(((self.age+100000)/6)**(1/3))
-
-    @property
-    @cache.memoize(timeout=60)
-    def rank_fiery(self):
-        return (math.sqrt(self.ups * self.downs))/(((self.age+100000)/6)**(1/3))
-
-    @property
-    @cache.memoize(timeout=60)
-    def score(self):
-        return self.ups-self.downs
-                
-
-    @property
-    def base36id(self):
-        return base36encode(self.id)
-
-    @property
+    @lazy
     def fullname(self):
         return f"t3_{self.base36id}"
 
     @property
+    @lazy
     def is_top_level(self):
-        return self.parent_fullname.startswith("t2_")
+        return self.parent_fullname and self.parent_fullname.startswith("t2_")
 
     @property
-    @lazy
-    def author(self):
-        return db.query(User).filter_by(id=self.author_id).first()
-
-    @property
-    @lazy
-    def post(self):
-
-        return db.query(Submission).filter_by(id=self.parent_submission).first()
+    def is_archived(self):
+        return self.post.is_archived
     
     @property
     @lazy
     def parent(self):
 
+        if not self.parent_submission:
+            return None
+
         if self.is_top_level:
-            return db.query(Submission).filter_by(id=self.parent_submission).first()
+            return self.post
+
         else:
-            return db.query(Comment).filter_by(id=base36decode(self.parent_fullname.split(sep="_")[1])).first()
+            return g.db.query(Comment).get(self.parent_comment_id)
 
     @property
     def children(self):
 
-        return db.query(Comment).filter_by(parent_comment=self.id).all()
+        return g.db.query(Comment).filter_by(parent_comment=self.id).all()
 
     @property
     def replies(self):
 
-        if "replies" in self.__dict__:
-            return self.__dict__["replies"]
-        else:
-            return db.query(Comment).filter_by(parent_fullname=self.fullname).all()
+        return self.__dict__.get("replies", g.db.query(Comment).filter_by(parent_fullname=self.fullname).all())
 
     @property
+    @lazy
     def permalink(self):
 
-        return f"/post/{self.post.base36id}/comment/{self.base36id}"
+        return f"{self.post.permalink}/{self.base36id}"
 
     @property
-    @cache.memoize(timeout=60)
     def any_descendants_live(self):
 
         if self.replies==[]:
@@ -133,83 +145,38 @@ class Comment(Base):
             return any([x.any_descendants_live for x in self.replies])
         
 
-    def rendered_comment(self, v=None, render_replies=True, standalone=False, level=1):
+    def rendered_comment(self, v=None, render_replies=True, standalone=False, level=1, **kwargs):
+
+        kwargs["post_base36id"]=kwargs.get("post_base36id", self.post.base36id if self.post else None)
 
         if self.is_banned or self.is_deleted:
             if v and v.admin_level>1:
-                return render_template("single_comment.html", v=v, c=self, replies=self.replies, render_replies=render_replies, standalone=standalone, level=level)
+                return render_template("single_comment.html",
+                                       v=v,
+                                       c=self,
+                                       render_replies=render_replies,
+                                       standalone=standalone,
+                                       level=level,
+                                       **kwargs)
                 
             elif self.any_descendants_live:
-                return render_template("single_comment_removed.html", c=self, replies=self.replies, render_replies=render_replies, standalone=standalone, level=level)
+                return render_template("single_comment_removed.html",
+                                       c=self,
+                                       render_replies=render_replies,
+                                       standalone=standalone,
+                                       level=level,
+                                       **kwargs)
             else:
                 return ""
 
-        return render_template("single_comment.html", v=v, c=self, replies=self.replies, render_replies=render_replies, standalone=standalone, level=level)
-    
-    @property
-    @cache.memoize(timeout=60)
-    def score_fuzzed(self, k=0.01):
-        real=self.score
-        a=math.floor(real*(1-k))
-        b=math.ceil(real*(1+k))
-        return randint(a,b)
-    
-    @property
-    def age_string(self):
-
-        age=self.age
-
-        if age<60:
-            return "just now"
-        elif age<3600:
-            minutes=int(age/60)
-            return f"{minutes} minute{'s' if minutes>1 else ''} ago"
-        elif age<86400:
-            hours=int(age/3600)
-            return f"{hours} hour{'s' if hours>1 else ''} ago"
-        elif age<2592000:
-            days=int(age/86400)
-            return f"{days} day{'s' if days>1 else ''} ago"
-
-        now=time.gmtime()
-        ctd=time.gmtime(self.created_utc)
-        months=now.tm_mon-ctd.tm_mon+12*(now.tm_year-ctd.tm_year)
-
-        if months < 12:
-            return f"{months} month{'s' if months>1 else ''} ago"
-        else:
-            years=now.tm_year-ctd.tm_year
-            return f"{years} year{'s' if years>1 else ''} ago"
-
-    @property
-    def edited_string(self):
-
-        if not self.edited_timestamp:
-            return None
-
-        age=int(time.time()-self.edited_timestamp)
-
-        if age<60:
-            return "just now"
-        elif age<3600:
-            minutes=int(age/60)
-            return f"{minutes} minute{'s' if minutes>1 else ''} ago"
-        elif age<86400:
-            hours=int(age/3600)
-            return f"{hours} hour{'s' if hours>1 else ''} ago"
-        elif age<2592000:
-            days=int(age/86400)
-            return f"{days} day{'s' if days>1 else ''} ago"
-
-        now=time.gmtime()
-        ctd=time.gmtime(self.created_utc)
-        months=now.tm_mon-ctd.tm_mon+12*(now.tm_year-ctd.tm_year)
-
-        if months < 12:
-            return f"{months} month{'s' if months>1 else ''} ago"
-        else:
-            years=now.tm_year-ctd.tm_year
-            return f"{years} year{'s' if years>1 else ''} ago"
+        
+        return render_template("single_comment.html",
+                               v=v,
+                               c=self,
+                               render_replies=render_replies,
+                               standalone=standalone,
+                               level=level,
+                               **kwargs)
 
     @property
     def active_flags(self):
@@ -217,6 +184,122 @@ class Comment(Base):
             return 0
         else:
             return self.flag_count
+
+    def visibility_reason(self, v):
+        if self.author_id==v.id:
+            return "this is your content."
+        elif self.board.has_mod(v):
+            return f"you are a guildmaster of +{self.board.name}."
+        elif self.board.has_contributor(v):
+            return f"you are an approved contributor in +{self.board.name}."
+        elif self.parent.author_id==v.id:
+            return "this is a reply to your content."
+        elif v.admin_level >= 4:
+            return "you are a Ruqqus admin."
+
+
+    def determine_offensive(self):
+
+        for x in g.db.query(BadWord).all():
+            if x.check(self.body):
+                self.is_offensive=True
+                
+                break
+        else:
+            self.is_offensive=False
+            
+
+    @property
+    def json(self):
+        if self.is_banned:
+            return {'is_banned':True,
+                    'ban_reason':self.ban_reason,
+                    'id':self.base36id,
+                    'post':self.post.base36id,
+                    'level':self.level,
+                    'parent':self.parent_fullname
+                    }
+        elif self.is_deleted:
+            return {'is_deleted':True,
+                    'id':self.base36id,
+                    'post':self.post.base36id,
+                    'level':self.level,
+                    'parent':self.parent_fullname
+                    }
+        return {'id':self.base36id,
+                'post':self.post.base36id,
+                'level':self.level,
+                'parent':self.parent_fullname,
+                'author':self.author_name if not self.author.is_deleted else None,
+                'body':self.body,
+                'body_html':self.body_html,
+            #   'replies': [x.json for x in self.replies]
+                'is_archived':self.is_archived,
+                'title': self.title.json if self.title else None
+                }
+            
+    @property
+    def voted(self):
+        
+        x=self.__dict__.get("_voted")
+        if x != None:
+            return x
+
+        if g.v:
+            x=g.db.query(CommentVote).filter_by(
+                comment_id=self.id,
+                user_id=g.v.id
+                ).first()
+
+            if x:
+                x=x.vote_type
+            else:
+                x=0
+        else:
+            x=0
+        return x
+
+    @property
+    def title(self):
+        return self.__dict__.get("_title", self.author.title)
+
+    @property
+    def is_blocking(self):
+        return self.__dict__.get('_is_blocking', 0)
+
+    @property
+    def is_blocked(self):
+        return self.__dict__.get('_is_blocked', 0)   
+
+    @property
+    def body(self):
+        return self.comment_aux.body
+
+    @body.setter
+    def body(self, x):
+        self.comment_aux.body=x
+        g.db.add(self.comment_aux)
+    
+    @property
+    def body_html(self):
+        return self.comment_aux.body_html
+
+    @body_html.setter
+    def body_html(self, x):
+        self.comment_aux.body_html=x
+        g.db.add(self.comment_aux)
+
+    @property
+    def ban_reason(self):
+        return self.comment_aux.ban_reason
+
+    @ban_reason.setter
+    def ban_reason(self, x):
+        self.comment_aux.ban_reason=x
+        g.db.add(self.comment_aux)
+    
+    
+    
         
 class Notification(Base):
 
@@ -227,16 +310,16 @@ class Notification(Base):
     comment_id=Column(Integer, ForeignKey("comments.id"))
     read=Column(Boolean, default=False)
 
+    comment=relationship("Comment", lazy="joined", innerjoin=True)
+
     #Server side computed values (copied from corresponding comment)
     created_utc=Column(Integer, server_default=FetchedValue())
-    is_banned=Column(Boolean, server_default=FetchedValue())
-    is_deleted=Column(Boolean, server_default=FetchedValue())
 
     def __repr__(self):
 
         return f"<Notification(id={self.id})"
 
     @property
-    def comment(self):
-
-        return db.query(Comment).filter_by(id=self.comment_id).first()
+    def voted(self):
+        return 0
+    

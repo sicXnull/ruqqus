@@ -7,9 +7,9 @@ from urllib.parse import quote
 from ruqqus.helpers.security import *
 from ruqqus.helpers.wrappers import *
 from ruqqus.classes import *
-from ruqqus.__main__ import app, db
+from ruqqus.__main__ import app
 
-def send_mail(to_address, subject, html, plaintext=None, from_address="Ruqqus <noreply@mail.ruqqus.com>"):
+def send_mail(to_address, subject, html, plaintext=None, files={}, from_address="Ruqqus <noreply@mail.ruqqus.com>"):
 
     url="https://api.mailgun.net/v3/mail.ruqqus.com/messages"
 
@@ -17,12 +17,13 @@ def send_mail(to_address, subject, html, plaintext=None, from_address="Ruqqus <n
           "to": [to_address],
           "subject": subject,
           "text": plaintext,
-          "html": html
+          "html": html,
           }
         
     return requests.post(url,
                          auth=("api",environ.get("MAILGUN_KEY")),
-                         data=data
+                         data=data,
+                         files=[("attachment", (k, files[k])) for k in files]
                          )
 
 
@@ -71,7 +72,7 @@ def activate(v):
     if not validate_hash(f"{email}+{id}+{timestamp}", token):
         abort(403)
 
-    user = db.query(User).filter_by(id=id).first()
+    user = g.db.query(User).filter_by(id=id).first()
     if not user:
         abort(404)
 
@@ -85,8 +86,8 @@ def activate(v):
         mail_badge = Badge(user_id=user.id,
                        badge_id=2,
                        created_utc=time.time())
-        db.add(mail_badge)
+        g.db.add(mail_badge)
     
-    db.add(user)
-    db.commit()
+    g.db.add(user)
+    
     return render_template("message_success.html", v=v, title="Email verified.", message=f"Your email {email} has been verified. Thank you.")
