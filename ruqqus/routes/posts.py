@@ -1,12 +1,14 @@
 from urllib.parse import urlparse, ParseResult, urlunparse, urlencode
 import mistletoe
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from bs4 import BeautifulSoup
 import secrets
 import threading
 import requests
 import re
 import bleach
+import time
 
 from ruqqus.helpers.wrappers import *
 from ruqqus.helpers.base36 import *
@@ -18,6 +20,7 @@ from ruqqus.helpers.get import *
 from ruqqus.helpers.thumbs import *
 from ruqqus.helpers.session import *
 from ruqqus.helpers.aws import *
+from ruqqus.helpers.alerts import send_notification
 from ruqqus.classes import *
 from .front import frontlist
 from flask import *
@@ -25,7 +28,7 @@ from ruqqus.__main__ import app, limiter, cache
 
 BAN_REASONS=['',
              "URL shorteners are not permitted.",
-             "Pornographic material is not permitted.",
+             "Pornographic material is not permitted.",  #defunct
              "Copyright infringement is not permitted."
             ]
 
@@ -109,13 +112,11 @@ def edit_post(pid, v):
     p.edited_utc = int(time.time())
 
     #offensive
+    p.is_offensive=False
     for x in g.db.query(BadWord).all():
         if (p.body and x.check(p.body)) or x.check(p.title):
             p.is_offensive=True
-            break
-        else:
-            p.is_offensive=False
-    
+            break   
 
     return redirect(p.permalink)
 
@@ -153,13 +154,22 @@ def get_post_title(v):
 
 
 @app.route("/submit", methods=['POST'])
+@app.route("/api/v1/submit", methods=["POST"])
 @limiter.limit("6/minute")
 @is_not_banned
 @tos_agreed
 @validate_formkey
+@api("create")
 def submit_post(v):
 
     title=request.form.get("title","")
+
+    title=title.lstrip().rstrip()
+    title=title.replace("\n","")
+    title=title.replace("\r","")
+    title=title.replace("\t","")
+    
+
 
     url=request.form.get("url","")
 
@@ -167,7 +177,7 @@ def submit_post(v):
     if not board:
         board=get_guild('general')
 
-    if re.match('^\s*$', title):
+    if not title:
         return render_template("submit.html",
                                v=v,
                                error="Please enter a better title.",
@@ -311,13 +321,58 @@ def submit_post(v):
                                            graceful=True
                                            )
                                )
-    user_id=v.id
-    user_name=v.username
-                
-                
 
 
-    #now make new post
+
+    #similarity check
+    now=int(time.time())
+    cutoff=now-60*60*24
+    similar_posts = g.db.query(Submission).options(
+        lazyload('*')
+        ).join(Submission.submission_aux
+        ).filter(
+        Submission.author_id==v.id, 
+        SubmissionAux.title.op('<->')(title)<app.config["SPAM_SIMILARITY_THRESHOLD"],
+        Submission.created_utc>cutoff
+        ).all()
+
+    if url:
+        similar_urls=g.db.query(Submission).options(
+            lazyload('*')
+            ).join(Submission.submission_aux
+            ).filter(
+            Submission.author_id==v.id, 
+            SubmissionAux.url.op('<->')(url)<app.config["SPAM_URL_SIMILARITY_THRESHOLD"],
+            Submission.created_utc>cutoff
+            ).all()
+    else:
+        similar_urls=[]
+
+    threshold = app.config["SPAM_SIMILAR_COUNT_THRESHOLD"]
+    if v.age >= (60*60*24*30):
+        threshold *= 4
+    elif v.age >=(60*60*24*7):
+        threshold *= 3
+    elif v.age >=(60*60*24):
+        threshold *= 2
+
+
+    if max(len(similar_urls), len(similar_posts)) >= threshold:
+
+        text="Your Ruqqus account has been suspended for 1 day for the following reason:\n\n> Too much spam!"
+        send_notification(v, text)
+
+        v.ban(reason="Spamming.",
+          include_alts=True,
+          days=1)
+
+        for post in similar_posts+similar_urls:
+            post.is_banned=True
+            post.ban_reason="Automatic spam removal. This happened because the post's creator submitted too much similar content too quickly."
+            g.db.add(post)
+
+        g.db.commit()
+        return redirect("/notifications")
 
    
 
@@ -346,9 +401,48 @@ def submit_post(v):
                                            graceful=True)
                                ), 400
 
+    #render text
+
     with CustomRenderer() as renderer:
         body_md=renderer.render(mistletoe.Document(body))
     body_html = sanitize(body_md, linkgen=True)
+
+
+    ##check spam
+    soup=BeautifulSoup(body_html, features="html.parser")
+    links=[x['href'] for x in soup.find_all('a') if x.get('href')]
+
+    if url:
+        links=[url]+links
+
+    for link in links:
+        parse_link=urlparse(link)
+        check_url=ParseResult(scheme="https",
+                            netloc=parse_link.netloc,
+                            path=parse_link.path,
+                            params=parse_link.params,
+                            query=parse_link.query,
+                            fragment='')
+        check_url=urlunparse(check_url)
+
+
+        badlink=g.db.query(BadLink).filter(literal(check_url).contains(BadLink.link)).first()
+        if badlink:
+            if badlink.autoban:
+                text="Your Ruqqus account has been suspended for 1 day for the following reason:\n\n> Too much spam!"
+                send_notification(v, text)
+                v.ban(days=1, reason="spam")
+
+                return redirect('/notifications')
+            else:
+                return render_template("submit.html",
+                           v=v,
+                           error=f"The link `{badlink.link}` is not allowed. Reason: {badlink.reason}",
+                           title=title,
+                           text=body[0:2000],
+                           b=get_guild(request.form.get("board","general"),
+                                       graceful=True)
+                           ), 400
 
     #check for embeddable video
     domain=parsed_url.netloc
@@ -369,26 +463,18 @@ def submit_post(v):
         abort(403)
 
     #offensive
+    is_offensive=False
     for x in g.db.query(BadWord).all():
         if (body and x.check(body)) or x.check(title):
             is_offensive=True
             break
-        else:
-            is_offensive=False
 
-    new_post=Submission(#title=title,
-          #              url=url,
-                        author_id=user_id,
-          #              body=body,
-          #              body_html=body_html,
-          #              embed_url=embed,
+    new_post=Submission(author_id=v.id,
                         domain_ref=domain_obj.id if domain_obj else None,
                         board_id=board.id,
                         original_board_id=board.id,
                         over_18=(bool(request.form.get("over_18","")) or board.over_18),
                         post_public=not board.is_private,
-                        #author_name=user_name,
-                        #guild_name=board.name,
                         repost_id=repost.id if repost else None,
                         is_offensive=is_offensive
                         )
@@ -408,7 +494,7 @@ def submit_post(v):
     g.db.add(new_post_aux)
     g.db.flush()
 
-    vote=Vote(user_id=user_id,
+    vote=Vote(user_id=v.id,
               vote_type=1,
               submission_id=new_post.id
               )
@@ -424,18 +510,20 @@ def submit_post(v):
         file=request.files['file']
 
         name=f'post/{new_post.base36id}/{secrets.token_urlsafe(8)}'
-
         upload_file(name, file)
+
+        #thumb_name=f'posts/{new_post.base36id}/thumb.png'
+        #upload_file(name, file, resize=(375,227))
         
         #update post data
         new_post.url=f'https://{BUCKET}/{name}'
         new_post.is_image=True
         new_post.domain_ref=1 #id of i.ruqqus.com domain
         g.db.add(new_post)
-        g.db.flush()
+        g.db.commit()
     
     #spin off thumbnail generation and csam detection as  new threads
-    elif new_post.url:
+    if new_post.url or request.files.get('file'):
         new_thread=threading.Thread(target=thumbnail_thread,
                                     args=(new_post.base36id,)
                                     )
@@ -450,7 +538,9 @@ def submit_post(v):
 
     #print(f"Content Event: @{new_post.author.username} post {new_post.base36id}")
 
-    return redirect(new_post.permalink)
+    return {"html":lambda:redirect(new_post.permalink),
+            "api":lambda:jsonify(new_post.json)
+            }
     
 # @app.route("/api/nsfw/<pid>/<x>", methods=["POST"])
 # @auth_required
@@ -483,6 +573,8 @@ def delete_post_pid(pid, v):
         abort(403)
 
     post.is_deleted=True
+    post.is_pinned=False
+    post.stickied=False
     
     g.db.add(post)
 

@@ -19,30 +19,38 @@ def flagged_posts(v):
 
     page=max(1, int(request.args.get("page", 1)))
 
-    posts = g.db.query(Submission).filter_by(is_approved=0, is_banned=False).filter(Submission.flag_count>=1).order_by(Submission.flag_count.desc()).offset(25*(page-1)).limit(26)
+    posts = g.db.query(Submission).filter_by(
+        is_approved=0, 
+        is_banned=False
+        ).join(Submission.flags
+        ).options(contains_eager(Submission.flags)
+        ).order_by(Submission.id.desc()).offset(25*(page-1)).limit(26)
 
-    listing=[p for p in posts]
+    listing=[p.id for p in posts]
     next_exists=(len(listing)==26)
     listing=listing[0:25]
+
+    listing=get_posts(listing, v=v)
 
     return render_template("admin/flagged_posts.html", next_exists=next_exists, listing=listing, page=page, v=v)
 
 
 @app.route("/admin/image_posts", methods=["GET"])
 @admin_level_required(3)
-@api
+@api("read")
 def image_posts_listing(v):
 
     page=int(request.args.get('page',1))
 
     posts=g.db.query(Submission).filter_by(domain_ref=1).order_by(Submission.id.desc()
                                                  ).offset(25*(page-1)
-                                                          ).limit(26
-                                                                  )
+                                                          ).limit(26)
     
-    posts=[x for x in posts]
+    posts=[x.id for x in posts]
     next_exists=(len(posts)==26)
     posts=posts[0:25]
+
+    posts=get_posts(posts, v=v)
 
     return {'html':lambda:render_template("admin/image_posts.html",
                                           v=v,
@@ -62,13 +70,26 @@ def flagged_comments(v):
 
     page=max(1, int(request.args.get("page", 1)))
 
-    posts = g.db.query(Comment).filter_by(is_approved=0, is_banned=False).filter(Comment.flag_count>=1).order_by(Comment.flag_count.desc()).offset(25*(page-1)).limit(26)
+    posts = g.db.query(Comment
+        ).filter_by(
+            is_approved=0, 
+            is_banned=False, 
+            is_deleted=False
+        ).join(Comment.flags).options(contains_eager(Comment.flags)
+        ).order_by(Comment.id.desc()).offset(25*(page-1)).limit(26).all()
 
-    listing=[p for p in posts]
+    listing=[p.id for p in posts]
     next_exists=(len(listing)==26)
     listing=listing[0:25]
 
-    return render_template("admin/flagged_comments.html", next_exists=next_exists, listing=listing, page=page, v=v)
+    listing=get_comments(listing, v=v)
+
+    return render_template("admin/flagged_comments.html",
+        next_exists=next_exists, 
+        listing=listing, 
+        page=page, 
+        v=v,
+        standalone=True)
 
 
 ##@app.route("/admin/<path>", methods=["GET"])
@@ -186,16 +207,17 @@ def participation_stats(v):
 
     now=int(time.time())
 
-    data={"banned_users":g.db.query(User).filter(User.is_banned>0, or_(User.unban_utc>now, User.unban_utc==0)).count(),
-          "valid_accounts":g.db.query(User).filter_by(is_deleted=False).filter(or_(User.is_banned==0, and_(User.is_banned>0, User.unban_utc<now))).count(),
-          "deleted_accounts":g.db.query(User).filter_by(is_deleted=True).count(),
+    data={"valid_users":g.db.query(User).filter_by(is_deleted=False).filter(or_(User.is_banned==0, and_(User.is_banned>0, User.unban_utc<now))).count(),
+          "private_users":g.db.query(User).filter_by(is_deleted=False, is_private=False).filter(User.is_banned>0, or_(User.unban_utc>now, User.unban_utc==0)).count(),
+          "banned_users":g.db.query(User).filter(User.is_banned>0, or_(User.unban_utc>now, User.unban_utc==0)).count(),
+          "deleted_users":g.db.query(User).filter_by(is_deleted=True).count(),
           "total_posts": g.db.query(Submission).count(),
-          "posting_users": g.db.query(User).join(Submission._author).distinct().count(),
+          "posting_users": g.db.query(Submission.author_id).distinct().count(),
           "listed_posts": g.db.query(Submission).filter_by(is_banned=False, is_deleted=False).count(),
           "removed_posts":g.db.query(Submission).filter_by(is_banned=True).count(),
           "deleted_posts":g.db.query(Submission).filter_by(is_deleted=True).count(),
           "total_comments":g.db.query(Comment).count(),
-          "commenting_users":g.db.query(User).join(Comment._author).distinct().count(),
+          "commenting_users":g.db.query(Comment.author_id).distinct().count(),
           "removed_comments":g.db.query(Comment).filter_by(is_banned=True).count(),
           "deleted_comments":g.db.query(Comment).filter_by(is_deleted=True).count(),
           "total_guilds":g.db.query(Board).count(),
@@ -203,11 +225,139 @@ def participation_stats(v):
           "private_guilds":g.db.query(Board).filter_by(is_banned=False, is_private=True).count(),
           "banned_guilds":g.db.query(Board).filter_by(is_banned=True).count(),
           "post_votes":g.db.query(Vote).count(),
-          "post_voting_users":g.db.query(User).join(Vote, Vote.user_id==User.id).distinct().count(),
+          "post_voting_users":g.db.query(Vote.user_id).distinct().count(),
           "comment_votes":g.db.query(CommentVote).count(),
-          "comment_voting_users":g.db.query(User).join(CommentVote, CommentVote.user_id==User.id).distinct().count()
+          "comment_voting_users":g.db.query(CommentVote.user_id).distinct().count()
           }
 
     data={x:f"{data[x]:,}" for x in data}
 
     return render_template("admin/content_stats.html", v=v, data=data)
+
+
+@app.route("/admin/vote_info", methods=["GET"])
+@admin_level_required(4)
+def admin_vote_info_get(v):
+
+    if not request.args.get("link"):
+        return render_template("admin/votes.html", v=v)
+
+    thing=get_from_permalink(request.args.get("link"), v=v)
+
+    if isinstance(thing, Submission):
+
+        ups=g.db.query(Vote
+            ).options(joinedload(Vote.user)
+            ).filter_by(submission_id=thing.id, vote_type=1
+            ).order_by(Vote.creation_ip.asc()
+            ).all()
+
+        downs=g.db.query(Vote
+            ).options(joinedload(Vote.user)
+            ).filter_by(submission_id=thing.id, vote_type=-1
+            ).order_by(Vote.creation_ip.asc()
+            ).all()
+
+    elif isinstance(thing, Comment):
+
+        ups=g.db.query(CommentVote
+            ).options(joinedload(CommentVote.user)
+            ).filter_by(comment_id=thing.id, vote_type=1
+            ).order_by(CommentVote.creation_ip.asc()
+            ).all()
+
+        downs=g.db.query(CommentVote
+            ).options(joinedload(CommentVote.user)
+            ).filter_by(comment_id=thing.id, vote_type=-1
+            ).order_by(CommentVote.creation_ip.asc()
+            ).all()
+
+    else:
+        abort(400)
+
+
+    return render_template("admin/votes.html",
+        v=v,
+        thing=thing,
+        ups=ups,
+        downs=downs,)
+
+@app.route("/admin/alt_votes", methods=["GET"])
+@admin_level_required(4)
+def alt_votes_get(v):
+
+    if not request.args.get("u1") or not request.args.get("u2"):
+        return render_template("admin/alt_votes.html", v=v) 
+
+    u1=request.args.get("u1")
+    u2=request.args.get("u2")
+
+    if not u1 or not u2:
+        return redirect("/admin/alt_votes")
+
+    u1=get_user(u1)
+    u2=get_user(u2)
+
+    u1_post_ups     = g.db.query(Vote.submission_id).filter_by(user_id=u1.id, vote_type=1).all()
+    u1_post_downs   = g.db.query(Vote.submission_id).filter_by(user_id=u1.id, vote_type=-1).all()
+    u1_comment_ups  = g.db.query(CommentVote.comment_id).filter_by(user_id=u1.id, vote_type=1).all()
+    u1_comment_downs= g.db.query(CommentVote.comment_id).filter_by(user_id=u1.id, vote_type=-1).all()
+    u2_post_ups     = g.db.query(Vote.submission_id).filter_by(user_id=u2.id, vote_type=1).all()
+    u2_post_downs   = g.db.query(Vote.submission_id).filter_by(user_id=u2.id, vote_type=-1).all()
+    u2_comment_ups  = g.db.query(CommentVote.comment_id).filter_by(user_id=u2.id, vote_type=1).all()
+    u2_comment_downs= g.db.query(CommentVote.comment_id).filter_by(user_id=u2.id, vote_type=-1).all()
+
+    data={}
+    data['u1_only_post_ups']    = len([x for x in u1_post_ups if x not in u2_post_ups])
+    data['u2_only_post_ups']    = len([x for x in u2_post_ups if x not in u1_post_ups])
+    data['both_post_ups']       = len(list(set(u1_post_ups) & set(u2_post_ups)))
+
+    data['u1_only_post_downs']  = len([x for x in u1_post_downs if x not in u2_post_downs])
+    data['u2_only_post_downs']  = len([x for x in u2_post_downs if x not in u1_post_downs])
+    data['both_post_downs']     = len(list(set(u1_post_downs) & set(u2_post_downs)))
+
+    data['u1_only_comment_ups'] = len([x for x in u1_comment_ups if x not in u2_comment_ups])
+    data['u2_only_comment_ups'] = len([x for x in u2_comment_ups if x not in u1_comment_ups])
+    data['both_comment_ups']    = len(list(set(u1_comment_ups) & set(u2_comment_ups)))
+
+    data['u1_only_comment_downs']    = len([x for x in u1_comment_downs if x not in u2_comment_downs])
+    data['u2_only_comment_downs']    = len([x for x in u2_comment_downs if x not in u1_comment_downs])
+    data['both_comment_downs']       = len(list(set(u1_comment_downs) & set(u2_comment_downs)))
+
+    data['u1_post_ups_unique'] = 100 * data['u1_only_post_ups'] // len(u1_post_ups) if u1_post_ups else 0
+    data['u2_post_ups_unique'] = 100 * data['u2_only_post_ups'] // len(u2_post_ups) if u2_post_ups else 0
+    data['u1_post_downs_unique'] = 100 * data['u1_only_post_downs'] // len(u1_post_downs) if u1_post_downs else 0
+    data['u2_post_downs_unique'] = 100 * data['u2_only_post_downs'] // len(u2_post_downs) if u2_post_downs else 0
+
+    data['u1_comment_ups_unique'] = 100 * data['u1_only_comment_ups'] // len(u1_comment_ups) if u1_comment_ups else 0
+    data['u2_comment_ups_unique'] = 100 * data['u2_only_comment_ups'] // len(u2_comment_ups) if u2_comment_ups else 0
+    data['u1_comment_downs_unique'] = 100 * data['u1_only_comment_downs'] // len(u1_comment_downs) if u1_comment_downs else 0
+    data['u2_comment_downs_unique'] = 100 * data['u2_only_comment_downs'] // len(u2_comment_downs) if u2_comment_downs else 0
+
+
+    return render_template("admin/alt_votes.html",
+        u1=u1, 
+        u2=u2,
+        v=v,
+        data=data
+        )
+
+
+@app.route("/admin/link_accounts", methods=["POST"])
+@admin_level_required(4)
+@validate_formkey
+def admin_link_accounts(v):
+
+    u1=int(request.form.get("u1"))
+    u2=int(request.form.get("u2"))
+
+    new_alt=Alt(user1=u1, user2=u2)
+
+    g.db.add(new_alt)
+
+    return redirect(f"/admin/alt_votes?u1={g.db.query(User).get(u1).username}&u2={g.db.query(User).get(u2).username}")
+
+@app.route("/admin/<pagename>", methods=["GET"])
+@admin_level_required(3)
+def admin_tools(v, pagename):
+    return render_template(f"admin/{pagename}.html", v=v)

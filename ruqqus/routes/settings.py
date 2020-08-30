@@ -18,78 +18,75 @@ from ruqqus.__main__ import app, cache
 @validate_formkey
 def settings_profile_post(v):
 
-    updated=False
+    updated=False                             
 
-    if request.form.get("new_password"):
-        if request.form.get("new_password") != request.form.get("cnf_password"):
-            return render_template("settings.html", v=v, error="Passwords do not match.")
-
-        if not v.verifyPass(request.form.get("old_password")):
-            return render_template("settings.html", v=v, error="Incorrect password")
-
-        v.passhash=v.hash_password(request.form.get("new_password"))
-        updated=True                                  
-
-    if request.form.get("over18") != v.over_18:
+    if request.values.get("over18", v.over_18) != v.over_18:
         updated=True
-        v.over_18=bool(request.form.get("over18", None))
+        v.over_18=request.values.get("over18", None)=='true'
         cache.delete_memoized(User.idlist, v)
 
-    if request.form.get("hide_offensive") != v.hide_offensive:
+    if request.values.get("hide_offensive", v.hide_offensive) != v.hide_offensive:
         updated=True
-        v.hide_offensive=bool(request.form.get("hide_offensive", None))
+        v.hide_offensive=request.values.get("hide_offensive", None)=='true'
         cache.delete_memoized(User.idlist, v)
 
-    if request.form.get("show_nsfl") != v.show_nsfl:
+    if request.values.get("show_nsfl", v.show_nsfl) != v.show_nsfl:
         updated=True
-        v.show_nsfl=bool(request.form.get("show_nsfl", None))
+        v.show_nsfl=request.values.get("show_nsfl", None)=='true'
+        cache.delete_memoized(User.idlist, v)
+
+    if request.values.get("filter_nsfw", v.filter_nsfw) != v.filter_nsfw:
+        updated=True
+        v.filter_nsfw= not request.values.get("filter_nsfw", None)=='true'
         cache.delete_memoized(User.idlist, v)
         
-    if request.form.get("private") != v.is_private:
+    if request.values.get("private", v.is_private) != v.is_private:
         updated=True
-        v.is_private=bool(request.form.get("private", None))
+        v.is_private=request.values.get("private", None)=='true'
         
-    if request.form.get("bio") != v.bio:
-        updated=True
-        bio = request.form.get("bio")[0:256]
+    if request.values.get("bio") is not None:
+        bio = request.values.get("bio")[0:256]
+
+        if bio==v.bio:
+            return render_template("settings_profile.html",
+                v=v,
+                error="You didn't change anything")
+
         v.bio=bio
 
         with CustomRenderer() as renderer:
             v.bio_html=renderer.render(mistletoe.Document(bio))
         v.bio_html=sanitize(v.bio_html, linkgen=True)
+        g.db.add(v)
+        return render_template("settings_profile.html",
+            v=v,
+            msg="Your bio has been updated.")
 
 
-    x=int(request.form.get("title_id",0))
-    if x==0:
-        v.title_id=None
-        updated=True
-    elif x>0:
-        title =get_title(x)
-        if bool(eval(title.qualification_expr)):
-            v.title_id=title.id
+    x=request.values.get("title_id",None)
+    if x:
+        x=int(x)
+        if x==0:
+            v.title_id=None
             updated=True
+        elif x>0:
+            title =get_title(x)
+            if bool(eval(title.qualification_expr)):
+                v.title_id=title.id
+                updated=True
+            else:
+                return jsonify({"error":f"You don't meet the requirements for title `{title.text}`."}), 403
         else:
-            return render_template("settings_profile.html",
-                                   v=v,
-                                   error=f"Unable to set title {title.text} - {title.requirement_string}"
-                                   )
-    else:
-        abort(400)
+            abort(400)
         
     if updated:
         g.db.add(v)
         
 
-        return render_template("settings_profile.html",
-                               v=v,
-                               msg="Your settings have been saved."
-                               )
+        return jsonify({"message":"Your settings have been updated."})
 
     else:
-        return render_template("settings_profile.html",
-                               v=v,
-                               error="You didn't change anything."
-                               )
+        return jsonify({"error":"You didn't change anything."}), 400
 
 @app.route("/settings/security", methods=["POST"])
 @is_not_banned
@@ -228,37 +225,41 @@ def settings_log_out_others(v):
 @auth_required
 @validate_formkey
 def settings_images_profile(v):
+    if v.can_upload_avatar:
+        v.set_profile(request.files["profile"])
 
-    v.set_profile(request.files["profile"])
+        #anti csam
+        new_thread=threading.Thread(target=check_csam_url,
+                                    args=(v.profile_url,
+                                          v,
+                                          lambda:board.del_profile()
+                                          )
+                                    )
+        new_thread.start()
 
-    #anti csam
-    new_thread=threading.Thread(target=check_csam_url,
-                                args=(v.profile_url,
-                                      v,
-                                      lambda:board.del_profile()
-                                      )
-                                )
-    new_thread.start()
+        return render_template("settings_profile.html", v=v, msg="Profile picture successfully updated.")
 
-    return render_template("settings_profile.html", v=v, msg="Profile picture successfully updated.")
+    return render_template("settings_profile.html", v=v, msg="Avatars require 300 reputation.")
 
 @app.route("/settings/images/banner", methods=["POST"])
 @auth_required
 @validate_formkey
 def settings_images_banner(v):
+    if v.can_upload_banner:
+        v.set_banner(request.files["banner"])
 
-    v.set_banner(request.files["banner"])
+        #anti csam
+        new_thread=threading.Thread(target=check_csam_url,
+                                    args=(v.banner_url,
+                                          v,
+                                          lambda:board.del_banner()
+                                          )
+                                    )
+        new_thread.start()
 
-    #anti csam
-    new_thread=threading.Thread(target=check_csam_url,
-                                args=(v.banner_url,
-                                      v,
-                                      lambda:board.del_banner()
-                                      )
-                                )
-    new_thread.start()
+        return render_template("settings_profile.html", v=v, msg="Banner successfully updated.")
 
-    return render_template("settings_profile.html", v=v, msg="Banner successfully updated.")
+    return render_template("settings_profile.html", v=v, msg="Banners require 500 reputation.")
 
 
 @app.route("/settings/delete/profile", methods=["POST"])
@@ -343,7 +344,7 @@ def delete_account(v):
 
     blocks=g.db.query(UserBlock).filter_by(target_id=v.id).all()
     for block in blocks:
-        g.db.delete(blocks)
+        g.db.delete(block)
     
 
     session.pop("user_id", None)
@@ -356,18 +357,26 @@ def delete_account(v):
 @auth_required
 def settings_blockedpage(v):
 
-    users=[x.target for x in v.blocked]
+    #users=[x.target for x in v.blocked]
 
     return render_template("settings_blocks.html",
-        v=v,
-        users=users)
+        v=v)
+
+@app.route("/settings/filters", methods=["GET"])
+@auth_required
+def settings_blockedguilds(v):
+
+    #users=[x.target for x in v.blocked]
+
+    return render_template("settings_guildfilter.html",
+        v=v)
 
 @app.route("/settings/block", methods=["POST"])
 @auth_required
 @validate_formkey
 def settings_block_user(v):
 
-    user=get_user(request.form.get("username"), graceful=True)
+    user=get_user(request.values.get("username"), graceful=True)
 
     if not user:
         return jsonify({"error":"That user doesn't exist."}), 404
@@ -392,7 +401,7 @@ def settings_block_user(v):
     #cache.delete_memoized(Board.idlist, v=v)
     cache.delete_memoized(frontlist, v=v)
 
-    return "", 204
+    return jsonify({"message":f"@{user.username} blocked."})
     
 @app.route("/settings/unblock", methods=["POST"])
 @auth_required
@@ -411,4 +420,56 @@ def settings_unblock_user(v):
     #cache.delete_memoized(Board.idlist, v=v)
     cache.delete_memoized(frontlist, v=v)
     
-    return "", 204
+    return jsonify({"message":f"@{user.username} unblocked."})
+
+
+@app.route("/settings/block_guild", methods=["POST"])
+@auth_required
+@validate_formkey
+def settings_block_guild(v):
+
+    board=get_guild(request.values.get("board"), graceful=True)
+
+    if not board:
+        return jsonify({"error":"That guild doesn't exist."}), 404
+
+    if v.has_blocked_guild(board):
+        return jsonify({"error":f"You have already blocked +{board.name}."}), 409
+
+
+    new_block=BoardBlock(user_id=v.id,
+                        board_id=board.id,
+                        created_utc=int(time.time())
+                        )
+    g.db.add(new_block)
+
+    cache.delete_memoized(v.idlist)
+    #cache.delete_memoized(Board.idlist, v=v)
+    cache.delete_memoized(frontlist, v=v)
+
+    return jsonify({"message":f"+{board.name} added to filter"})
+    
+@app.route("/settings/unblock_guild", methods=["POST"])
+@auth_required
+@validate_formkey
+def settings_unblock_guild(v):
+
+    board=get_guild(request.values.get("board"), graceful=True)
+
+    x= v.has_blocked_guild(board)
+    if not x:
+        abort(409)
+
+    g.db.delete(x)
+
+    cache.delete_memoized(v.idlist)
+    #cache.delete_memoized(Board.idlist, v=v)
+    cache.delete_memoized(frontlist, v=v)
+    
+    return jsonify({"message":f"+{board.name} removed from filter"})
+
+@app.route("/settings/apps", methods=["GET"])
+@auth_required
+def settings_apps(v):
+
+    return render_template("settings_apps.html", v=v)

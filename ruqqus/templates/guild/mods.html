@@ -91,7 +91,6 @@
           <tr>
             <th scope="col">User</th>
             <th scope="col">Permissions</th>
-            <th scope="col">Status</th>
             <th scope="col"></th>
           </tr>
         </thead>
@@ -104,10 +103,7 @@
                 <img src="{{ mod.user.profile_url }}" class="profile-pic-20 align-top mr-2">@{{ mod.user.username }}</a>
               </td>
               <td>Full</td>
-              <td>
-                <i class="fas fa-circle text-success text-small-extra mr-2"></i>
-                Active
-              </td>
+
               <td>
                 {% if me and me.id < mod.id %}
                 <div class="dropdown float-right dropdown-actions">
@@ -166,9 +162,7 @@
                       <i class="fas fa-ellipsis-h text-muted"></i>
                     </a>
                     <div class="dropdown-menu border-0 shadow dropdown-menu-right mt-2" aria-labelledby="dropdownMoreLink" x-placement="bottom-end" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(21px, 18px, 0px);">
-                      {% if user.id==v.id %}
-                      <a class="dropdown-item" href="javascript:void(0)" onclick="post('/mod/{{ b.base36id }}/rescind/{{ user.username }}', callback=function(){window.location.reload(true)})"><i class="fas fa-redo-alt"></i>Cancel invite</a>
-                      {% endif %}
+                      <a class="dropdown-item text-danger" href="javascript:void(0)" onclick="post('/mod/{{ b.base36id }}/rescind/{{ user.username }}', callback=function(){window.location.reload(true)})"><i class="fas fa-times text-danger"></i>Cancel invite</a>
                     </div>
                   </div>
                 </td>

@@ -1,6 +1,9 @@
 import gevent.monkey
 gevent.monkey.patch_all()
 
+#import psycogreen.gevent
+#psycogreen.gevent.patch_psycopg()
+
 from os import environ
 import secrets
 from flask import *
@@ -24,7 +27,7 @@ from redis import BlockingConnectionPool
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 
-_version = "2.13.0"
+_version = "2.18.0"
 
 app = Flask(__name__,
             template_folder='./templates',
@@ -33,17 +36,16 @@ app = Flask(__name__,
 app.wsgi_app = ProxyFix(app.wsgi_app, num_proxies=2)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = environ.get("DATABASE_CONNECTION_POOL_URL", environ.get("DATABASE_URL"))
+app.config['DATABASE_URL'] = environ.get("DATABASE_CONNECTION_POOL_URL", environ.get("DATABASE_URL"))
+
 app.config['SQLALCHEMY_READ_URIS']=[
-    environ.get("DATABASE_CONNECTION_POOL_READ_01_URL") or environ.get("HEROKU_POSTGRESQL_MAROON_URL"),
-    environ.get("DATABASE_CONNECTION_POOL_READ_02_URL") or environ.get("HEROKU_POSTGRESQL_YELLOW_URL"),
-    environ.get("DATABASE_CONNECTION_POOL_READ_03_URL") or environ.get("HEROKU_POSTGRESQL_CRIMSON_URL"),
-    environ.get("DATABASE_CONNECTION_POOL_READ_04_URL_URL") or environ.get("HEROKU_POSTGRESQL_GREEN_URL"),
-    environ.get("DATABASE_CONNECTION_POOL_READ_05_URL") or environ.get("HEROKU_POSTGRESQL_GOLD_URL")
+    environ.get("DATABASE_CONNECTION_POOL_READ_01_URL"),
+    environ.get("DATABASE_CONNECTION_POOL_READ_02_URL"),
+    environ.get("DATABASE_CONNECTION_POOL_READ_03_URL")
     ]
 
 app.config['SECRET_KEY']=environ.get('MASTER_KEY')
-app.config["SERVER_NAME"]=environ.get("domain", None)
+app.config["SERVER_NAME"]=environ.get("domain", environ.get("SERVER_NAME", None))
 app.config["SESSION_COOKIE_NAME"]="session_ruqqus"
 app.config["VERSION"]=_version
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
@@ -60,9 +62,20 @@ app.config["UserAgent"]=f"Ruqqus webserver tools for Ruqqus v{_version} develope
 if "localhost" in app.config["SERVER_NAME"]:
     app.config["CACHE_TYPE"]="null"
 else:
-    app.config["CACHE_TYPE"]=environ.get("CACHE_TYPE", 'null')
+    app.config["CACHE_TYPE"]=environ.get("CACHE_TYPE", 'filesystem')
 
-app.config["CACHE_DIR"]=environ.get("CACHE_DIR")
+app.config["CACHE_DIR"]=environ.get("CACHE_DIR", "ruqquscache")
+
+#captcha configs
+app.config["HCAPTCHA_SITEKEY"]=environ.get("HCAPTCHA_SITEKEY")
+app.config["HCAPTCHA_SECRET"]=environ.get("HCAPTCHA_SECRET")
+
+
+
+#antispam configs
+app.config["SPAM_SIMILARITY_THRESHOLD"]=float(environ.get("SPAM_SIMILARITY_THRESHOLD", 0.5))
+app.config["SPAM_SIMILAR_COUNT_THRESHOLD"]=int(environ.get("SPAM_SIMILAR_COUNT_THRESHOLD", 5))
+app.config["SPAM_URL_SIMILARITY_THRESHOLD"]=float(environ.get("SPAM_URL_SIMILARITY_THRESHOLD", 0.1))
     
 #app.config["CACHE_REDIS_URL"]=environ.get("REDIS_URL")
 #app.config["CACHE_DEFAULT_TIMEOUT"]=60
@@ -73,6 +86,15 @@ app.config["CACHE_DIR"]=environ.get("CACHE_DIR")
 #redispool=BlockingConnectionPool(max_connections=app.config["REDIS_POOL_SIZE"])
 #app.config["CACHE_OPTIONS"]={'connection_pool':redispool}
 
+
+#setup env vars - convenience statement
+
+for x in ["DATABASE_URL","SECRET_KEY"]:
+    if not app.config.get(x):
+        raise RuntimeError(f"The following environment variable must be defined: {x}")
+
+        
+
 Markdown(app)
 cache=Cache(app)
 Compress(app)
@@ -82,9 +104,12 @@ app.config["RATELIMIT_STORAGE_URL"]=environ.get("REDIS_URL", "memory://")
 app.config["RATELIMIT_KEY_PREFIX"]="flask_limiting_"
 app.config["RATELIMIT_ENABLED"]=bool(int(environ.get("RATELIMIT_ENABLED", True)))
 
+def limiter_key_func():
+    return request.remote_addr
+
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
+    key_func=limiter_key_func,
     default_limits=["100/minute"],
     headers_enabled=True,
     strategy="fixed-window"
@@ -93,8 +118,8 @@ limiter = Limiter(
 #setup db
 pool_size=int(environ.get("PG_POOL_SIZE", 10))
 engines={
-    "leader":create_engine(app.config['SQLALCHEMY_DATABASE_URI'], pool_size=pool_size, pool_use_lifo=True) ,
-    "followers":[create_engine(x, pool_size=pool_size, pool_use_lifo=True) for x in app.config['SQLALCHEMY_READ_URIS'] if x] if any(i for i in app.config['SQLALCHEMY_READ_URIS']) else [create_engine(app.config['SQLALCHEMY_DATABASE_URI'], pool_size=pool_size, pool_use_lifo=True)]
+    "leader":create_engine(app.config['DATABASE_URL'], pool_size=pool_size, pool_use_lifo=True) ,
+    "followers":[create_engine(x, pool_size=pool_size, pool_use_lifo=True) for x in app.config['SQLALCHEMY_READ_URIS'] if x] if any(i for i in app.config['SQLALCHEMY_READ_URIS']) else [create_engine(app.config['DATABASE_URL'], pool_size=pool_size, pool_use_lifo=True)]
 }
 
 
@@ -112,7 +137,7 @@ class RoutingSession(Session):
                 return random.choice(engines['followers'])
 
 db_session=scoped_session(sessionmaker(class_=RoutingSession))
-#db_session=scoped_session((sessionmaker(bind=engines["leader"]))
+#db_session=scoped_session(sessionmaker(bind=engines["leader"]))
 
 Base = declarative_base()
 

@@ -46,6 +46,7 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
     score_top=Column(Integer, default=1)
     level=Column(Integer, default=0)
     parent_comment_id=Column(Integer, ForeignKey("comments.id"))
+    original_board_id=Column(Integer, ForeignKey("boards.id"))
 
     over_18=Column(Boolean, default=False)
     is_op=Column(Boolean, default=False)
@@ -53,15 +54,24 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
     is_nsfl=Column(Boolean, default=False)
 
     post=relationship("Submission")
-    flags=relationship("CommentFlag", lazy="subquery", backref="comment")
+    flags=relationship("CommentFlag", backref="comment")
     author=relationship("User", lazy="joined", innerjoin=True, primaryjoin="User.id==Comment.author_id")
     board=association_proxy("post", "board")
+    original_board=relationship("Board", primaryjoin="Board.id==Comment.original_board_id")
+
+    upvotes=Column(Integer, default=1)
+    downvotes=Column(Integer, default=0)
+
+    parent_comment=relationship("Comment", remote_side=[id])
+    child_comments=relationship("Comment", remote_side=[parent_comment_id])
+
+
 
     #These are virtual properties handled as postgres functions server-side
     #There is no difference to SQLAlchemy, but they cannot be written to
     ups = deferred(Column(Integer, server_default=FetchedValue()))
     downs=deferred(Column(Integer, server_default=FetchedValue()))
-    is_public=Column(Boolean, server_default=FetchedValue())
+    is_public=deferred(Column(Boolean, server_default=FetchedValue()))
 
     score=deferred(Column(Integer, server_default=FetchedValue()))
     
@@ -69,9 +79,9 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
     rank_fiery=deferred(Column(Float, server_default=FetchedValue()))
     rank_hot=deferred(Column(Float, server_default=FetchedValue()))
 
-    flag_count=deferred(Column(Integer, server_default=FetchedValue()))
+    #flag_count=deferred(Column(Integer, server_default=FetchedValue()))
 
-    board_id=Column(Integer, server_default=FetchedValue())
+    board_id=deferred(Column(Integer, server_default=FetchedValue()))
     
     
 
@@ -124,7 +134,15 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
     @property
     def replies(self):
 
-        return self.__dict__.get("replies", g.db.query(Comment).filter_by(parent_fullname=self.fullname).all())
+        r=self.__dict__.get("replies", None)
+        if r==None:
+            r=self.child_comments
+        return r
+
+
+    @replies.setter
+    def replies(self, value):
+        self.__dict__["replies"]=value
 
     @property
     @lazy
@@ -227,15 +245,27 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
                     'parent':self.parent_fullname
                     }
         return {'id':self.base36id,
+                'fullname':self.fullname,
                 'post':self.post.base36id,
                 'level':self.level,
                 'parent':self.parent_fullname,
-                'author':self.author_name if not self.author.is_deleted else None,
+                'author':self.author.username if not self.author.is_deleted else None,
                 'body':self.body,
                 'body_html':self.body_html,
-            #   'replies': [x.json for x in self.replies]
                 'is_archived':self.is_archived,
-                'title': self.title.json if self.title else None
+                'title':self.title.json if self.title else None,
+                'guild_name':self.board.name,
+                'created_utc':self.created_utc,
+                'edited_utc':self.edited_utc or 0,
+                'is_banned':False,
+                'is_deleted':False,
+                'is_nsfw':self.over_18,
+                'is_offensive':self.is_offensive,
+                'is_nsfl':self.is_nsfl,
+                'permalink':self.permalink,
+                'score':self.score_fuzzed,
+                'upvotes':self.upvotes_fuzzed,
+                'downvotes':self.downvotes_fuzzed
                 }
             
     @property
@@ -297,6 +327,11 @@ class Comment(Base, Age_times, Scores, Stndrd, Fuzzing):
     def ban_reason(self, x):
         self.comment_aux.ban_reason=x
         g.db.add(self.comment_aux)
+
+    @property
+    def flag_count(self):
+        return len(self.flags)
+    
     
     
     

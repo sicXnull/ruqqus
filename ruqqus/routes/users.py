@@ -29,7 +29,7 @@ def mfa_qr(secret, v):
                 error_correction=qrcode.constants.ERROR_CORRECT_L
     )
     qr.add_data(x.provisioning_uri(v.username, issuer_name="Ruqqus"))
-    img=qr.make_image(fill_color="#603abb", back_color="white")
+    img=qr.make_image(fill_color="#805ad5", back_color="white")
     
     mem=io.BytesIO()
             
@@ -39,7 +39,7 @@ def mfa_qr(secret, v):
 
 @app.route("/api/is_available/<name>", methods=["GET"])
 def api_is_available(name):
-    if get_user(name):
+    if get_user(name, graceful=True):
         return jsonify({name:False})
     else:
         return jsonify({name:True})
@@ -61,7 +61,7 @@ def redditor_moment_redirect(username):
 @app.route("/@<username>", methods=["GET"])
 @app.route("/api/v1/user/<username>/listing", methods=["GET"])
 @auth_desired
-@api
+@api("read")
 def u_username(username, v=None):
     
     #username is unique so at most this returns one result. Otherwise 404
@@ -73,7 +73,7 @@ def u_username(username, v=None):
     #check for wrong cases
 
     if username != u.username:
-        return redirect(request.path.replace(username, u.username))
+        return redirect(u.url)
         
 
     if u.reserved:
@@ -90,6 +90,13 @@ def u_username(username, v=None):
                 'api': lambda:{"error":"That user is banned"}
                 }
 
+    if u.is_deleted and (not v or v.admin_level<3):
+        return {'html': lambda:render_template("userpage_deleted.html",
+                                               u=u,
+                                               v=v),
+                'api': lambda:{"error":"That user deactivated their account."}
+                }
+
     if u.is_private and (not v or (v.id!=u.id and v.admin_level<3)):
         return {'html': lambda:render_template("userpage_private.html",
                                                u=u,
@@ -97,12 +104,7 @@ def u_username(username, v=None):
                 'api': lambda:{"error":"That userpage is private"}
                 }
 
-    if u.is_deleted and (not v or (v.id!=u.id and v.admin_level<3)):
-        return {'html': lambda:render_template("userpage_deleted.html",
-                                               u=u,
-                                               v=v),
-                'api': lambda:{"error":"That user deactivated their account."}
-                }
+
 
     if u.is_blocking and (not v or v.admin_level<3):
         return {'html': lambda:render_template("userpage_blocking.html",
@@ -162,13 +164,13 @@ def u_username_comments(username, v=None):
     if user.is_suspended and (not v or v.admin_level < 3):
         return render_template("userpage_banned.html", u=user, v=v)
 
-    if user.is_private and (not v or (v.id!=user.id and v.admin_level<3)):
-        return render_template("userpage_private.html", u=user, v=v)
-
-    if user.is_deleted and (not v or (v.id!=user.id and v.admin_level<3)):
+    if user.is_deleted and (not v or v.admin_level<3):
         return render_template("userpage_deleted.html",
                                                u=user,
                                                v=v)
+
+    if user.is_private and (not v or (v.id!=user.id and v.admin_level<3)):
+        return render_template("userpage_private.html", u=user, v=v)
 
     if user.is_blocking and (not v or v.admin_level<3):
         return render_template("userpage_blocking.html",

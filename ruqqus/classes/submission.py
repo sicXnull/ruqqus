@@ -50,7 +50,7 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
     _comments=relationship("Comment", lazy="dynamic", primaryjoin="Comment.parent_submission==Submission.id", backref="submissions")
     domain_ref=Column(Integer, ForeignKey("domains.id"))
     domain_obj=relationship("Domain")
-    flags=relationship("Flag", lazy="dynamic", backref="submission")
+    flags=relationship("Flag", backref="submission")
     is_approved=Column(Integer, ForeignKey("users.id"), default=0)
     approved_utc=Column(Integer, default=0)
     board_id=Column(Integer, ForeignKey("boards.id"), default=None)
@@ -73,6 +73,10 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
     author=relationship("User", lazy="joined", innerjoin=True, primaryjoin="Submission.author_id==User.id")
     is_pinned=Column(Boolean, default=False)
     score_best=Column(Float, default=0)
+    reports=relationship("Report", backref="submission")
+
+    upvotes = Column(Integer, default=1)
+    downvotes = Column(Integer, default=0)
 
     approved_by=relationship("User", uselist=False, primaryjoin="Submission.is_approved==User.id")
 
@@ -85,12 +89,12 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
 
     ups = deferred(Column(Integer, server_default=FetchedValue()))
     downs=deferred(Column(Integer, server_default=FetchedValue()))
-    age=deferred(Column(Integer, server_default=FetchedValue()))
+    #age=deferred(Column(Integer, server_default=FetchedValue()))
     comment_count=Column(Integer, server_default=FetchedValue())
-    flag_count=deferred(Column(Integer, server_default=FetchedValue()))
-    report_count=deferred(Column(Integer, server_default=FetchedValue()))
-    score=Column(Float, server_default=FetchedValue())
-    is_public=deferred(Column(Boolean, server_default=FetchedValue()))
+    #flag_count=deferred(Column(Integer, server_default=FetchedValue()))
+    #report_count=deferred(Column(Integer, server_default=FetchedValue()))
+    score=deferred(Column(Float, server_default=FetchedValue()))
+    #is_public=deferred(Column(Boolean, server_default=FetchedValue()))
 
     rank_hot=deferred(Column(Float, server_default=FetchedValue()))
     rank_fiery=deferred(Column(Float, server_default=FetchedValue()))
@@ -167,7 +171,7 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
         else:
             template="submission.html"
 
-        private=not self.is_public and not self.board.can_view(v)
+        private=not self.is_public and not self.is_pinned and not self.board.can_view(v)
 
         if private and (not v or not self.author_id==v.id):
             abort(403)
@@ -189,7 +193,8 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
                                linked_comment=comment,
                                comment_info=comment_info,
                                is_allowed_to_comment=is_allowed_to_comment,
-                               render_replies=True
+                               render_replies=True,
+                               is_guildmaster=self.board.has_mod(v)
                                )
 
 
@@ -234,7 +239,7 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
         if self.is_approved:
             return 0
         else:
-            return self.flags.filter(Flag.created_utc>self.approved_utc).count()
+            return len(self.flags)
 
     @property
     def active_reports(self):
@@ -257,8 +262,10 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
 
     def visibility_reason(self, v):
 
-        if self.author_id==v.id:
+        if v and self.author_id==v.id:
             return "this is your content."
+        elif self.is_pinned:
+            return "a guildmaster has pinned it."
         elif self.board.has_mod(v):
             return f"you are a guildmaster of +{self.board.name}."
         elif self.board.has_contributor(v):
@@ -297,15 +304,15 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
                     'permalink':self.permalink,
                     'guild_name':self.guild_name
                     }
-        data= {'author':self.author_name if not self.author.is_deleted else None,
+        data= {'author':self.author.username if not self.author.is_deleted else None,
                 'permalink':self.permalink,
                 'is_banned':False,
                 'is_deleted':False,
                 'created_utc':self.created_utc,
                 'id':self.base36id,
+                'fullname':self.fullname,
                 'title':self.title,
                 'is_nsfw':self.over_18,
-                'is_offensive':self.is_offensive,
                 'is_nsfl':self.is_nsfl,
                 'thumb_url':self.thumb_url,
                 'domain':self.domain,
@@ -314,11 +321,16 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
                 'body':self.body,
                 'body_html':self.body_html,
                 'created_utc':self.created_utc,
-                'edited_utc':self.edited_utc,
-                'guild_name':self.guild_name,
+                'edited_utc':self.edited_utc or 0,
+                'guild_name':self.board.name,
                 'embed_url':self.embed_url,
                 'is_archived':self.is_archived,
-                'author_title':self.author.title.json if self.author.title else None
+                'author_title':self.author.title.json if self.author.title else None,
+                'original_guild_name':self.original_board.name,
+                'comment_count':self.comment_count,
+                'score':self.score_fuzzed,
+                'upvotes':self.upvotes_fuzzed,
+                'downvotes':self.downvotes_fuzzed
                 }
 
         if "_voted" in self.__dict__:
@@ -387,3 +399,38 @@ class Submission(Base, Stndrd, Age_times, Scores, Fuzzing):
     def embed_url(self, x):
         self.submission_aux.embed_url=x
         g.db.add(self.submission_aux)
+
+    @property
+    def is_guildmaster(self):
+        return self.__dict__.get('_is_guildmaster', False)
+
+    @property
+    def is_blocking_guild(self):
+        return self.__dict__.get('_is_blocking_guild', False)
+
+    @property
+    def is_blocked(self):
+        return self.__dict__.get('_is_blocked', False)
+
+    @property
+    def is_blocking(self):
+        return self.__dict__.get('_is_blocking', False)
+
+    @property
+    def is_subscribed(self):
+        return self.__dict__.get('_is_subscribed', False)
+    
+    
+    @property
+    def is_public(self):
+        return self.post_public or not self.board.is_private
+
+    @property
+    def flag_count(self):
+        return len(self.flags)
+
+    @property
+    def report_count(self):
+        return len(self.reports)
+    
+    

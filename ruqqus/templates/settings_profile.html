@@ -5,77 +5,97 @@
 {% block content %}
 
 
-    <div class="row">
+<div class="row">
 
-      <div class="col col-md-8">
+  <div class="col col-lg-8">
 
-        <div class="settings">
+    <div class="settings">
 
-          <h2 class="h5">Profile Picture</h2>
+      <h2 class="h5">Profile Picture</h2>
 
-          <div class="settings-section rounded">
+      <div class="settings-section rounded">
+
+        <div class="d-flex">
+
+          <div class="title w-lg-25 text-md-center">
+            <img src="{{ v.profile_url }}" class="profile-pic-75">
+          </div>
+
+          <div class="body w-lg-100 my-auto">
 
             <div class="d-flex">
 
-              <div class="title w-lg-25 text-md-center">
-                <img src="{{ v.profile_url }}" class="profile-pic-75">
-              </div>
+              <div>
 
-              <div class="body w-lg-100 my-auto">
+                {% if v.can_upload_avatar %}
 
-                <div class="d-flex">
+                <form action="/settings/images/profile" method="post" enctype="multipart/form-data">
+                  <input type="hidden" name="formkey" value="{{ v.formkey }}">
+                  <label class="btn btn-secondary text-capitalize mr-2 mb-0">
+                    Update<input type="file" hidden name="profile" onchange="form.submit()">
+                  </label>
+                </form>
 
-                  <div>
+                {% else %}
 
-                   <form action="/settings/images/profile" method="post" enctype="multipart/form-data">
-                    <input type="hidden" name="formkey" value="{{ v.formkey }}">
-                    <label class="btn btn-secondary text-capitalize mr-2 mb-0">
-                      Update<input type="file" hidden name="profile" onchange="form.submit()">
-                    </label>
-                  </form>
+                <div class="text-muted">You can add a custom avatar after earning 300 Rep.</div>
 
-                </div>
-
-                {% if v.has_profile %}
-                <div>
-                  <form action="/settings/delete/profile" method="post">
-                    <input type="hidden" name="formkey" value="{{ v.formkey }}">
-                    <button type="submit" value="Delete" class="btn btn-link fa-lg"><i class="far fa-trash-alt text-danger"></i></button>
-                  </form>
-                </div>
                 {% endif %}
 
               </div>
 
-              <div class="text-small-extra text-muted mt-3">JPG, PNG, GIF files supported. Max file size 16MB.</div>
+              {% if v.has_profile %}
+              <div>
+                <form action="/settings/delete/profile" method="post">
+                  <input type="hidden" name="formkey" value="{{ v.formkey }}">
+                  <button type="submit" value="Delete" class="btn btn-link fa-lg"><i class="far fa-trash-alt text-danger"></i></button>
+                </form>
+              </div>
+              {% endif %}
 
             </div>
+
+            {% if v.can_upload_avatar %}
+
+            <div class="text-small-extra text-muted mt-3">JPG, PNG, GIF files supported. Max file size 16MB.</div>
+
+            {% endif %}
 
           </div>
 
         </div>
-        <h2 class="h5">Profile Banner</h2>
 
-        <div class="settings-section rounded">
+      </div>
+      <h2 class="h5">Profile Banner</h2>
 
-          <div class="d-flex">
+      <div class="settings-section rounded">
 
-            <div class="title w-lg-75 text-md-center">
-              <img src="{{ v.banner_url }}" class="banner-pic-135">
-            </div>
+        <div class="d-flex">
 
-            <div class="body w-lg-100 my-auto">
+          <div class="title w-lg-75 text-md-center">
+            <img src="{{ v.banner_url }}" class="banner-pic-135">
+          </div>
 
-              <div class="d-flex">
+          <div class="body w-lg-100 my-auto">
 
-                <div>
+            <div class="d-flex">
 
-                 <form action="/settings/images/banner" method="post" enctype="multipart/form-data">
+              <div>
+
+                {% if v.can_upload_banner %}
+
+                <form action="/settings/images/banner" method="post" enctype="multipart/form-data">
                   <input type="hidden" name="formkey" value="{{ v.formkey }}">
                   <label class="btn btn-secondary text-capitalize mr-2 mb-0">
                     Update<input type="file" hidden name="banner" onchange="form.submit()">
                   </label>
                 </form>
+
+                {% else %}
+
+                <div class="text-muted">You can add a custom banner after earning 500 Rep.</div>
+
+                {% endif %}
 
               </div>
 
@@ -91,7 +111,11 @@
 
             </div>
 
+            {% if v.can_upload_banner %}
+
             <div class="text-small-extra text-muted mt-3">JPG, PNG, GIF files supported. Max file size 16MB. (Recommend 1400x250 pixels)</div>
+
+            {% endif %}
 
           </div>
 
@@ -132,43 +156,83 @@
 
           </div>
 
+          <h2 class="h5" name="linkouts">Linked Accounts</h2>
 
+          <p class="text-small text-muted">Link other services to your Ruqqus account</p>
 
-      <h2 class="h5" name="referral">RSS Feed</h2>
+          <div class="settings-section rounded">
 
-      <p class="text-small text-muted">Subscribe to your own personal ruqqus rss feed.</p>
+            <div class="d-lg-flex">
 
-      <div class="settings-section rounded">
+              <div class="title w-lg-25">
+                <label for="patreon_link">Patreon</label>
+              </div>
 
-        <div class="d-lg-flex">
+              <div class="body w-lg-100">
 
-          <div class="title w-lg-25">
-            <label for="referral_code">Custom User Feed</label>
+                {% if not v.patreon_id %}
+
+                <a href="/patreon_authorize" id="patreon"><button class="btn btn-secondary"><i class="fab fa-patreon text-small mr-2"></i>Link Patreon</button></a>
+
+                <div class="text-small-extra text-muted mt-3">Link your Patreon account to unlock exclusive <a href="/help/titles#SupporterTitles">titles</a> and <a href="/help/badges#SupporterBadges">badges</a> for supporting Ruqqus.</div>
+
+                <div class="d-none d-md-block py-4">
+                  <p class="text-small mb-2">How you would appear with the Gold Patron title. Pretty sweet!</p>
+
+                  <div class="p-3 bg-light rounded">
+                    <div class="post-meta text-left"><span class="post-meta-guild"><span class="font-weight-bold"><a href="/+ruqqus" class="text-black"><img src="https://i.ruqqus.com/board/ruqqus/profile-3.png" class="profile-pic-20 align-top mr-1">+Ruqqus</a></span> · </span><span>20 min ago</span> by <a href="/{{ v.username }}" class="user-name">{{ v.username }}</a><a href="/patreon_authorize"><span class="badge font-weight-normal text-small ml-1" style="color: #502e0e; background-color: #ce9632; background-image: linear-gradient(5deg, #ce9632 0%, #f7ce68 100%); box-shadow: 0 1px 2px rgba(216, 178, 84, 0.5); text-shadow: 1px 1px 2px rgb(240, 188, 120)">Gold Patron</span></a> · (i.ruqqus.com)
+                    </div>
+                  </div>
+
+                </div>
+
+                {% else %}
+
+                <p class="text-muted">Connected as {{ v.patreon_name }}</p>
+                <form action="/patreon_unauthorize" method="post">
+                  <input type="hidden" name="formkey" value="{{ v.formkey }}">
+                  <input type="submit" class="btn btn-secondary text-capitalize" value="Unlink patreon">
+                </form>
+                {% endif %}
+
+              </div>
+
+            </div>
+
           </div>
 
-          <div class="body w-lg-100">
 
-            <input type="text" readonly="" class="form-control copy-link" id="rss_feed" value="{{ ('/feeds/@' + v.username + '/' + v.feedkey + '/hot') | full_link }}" data-clipboard-text="{{ ('/feeds/@' + v.username + '/' + v.feedkey + '/hot') | full_link }}">
-              <form action="/settings/new_feedkey" method="post">
+          <h2 class="h5" name="referral">RSS Feed</h2>
+
+          <p class="text-small text-muted">Subscribe to your own personal ruqqus rss feed.</p>
+
+          <div class="settings-section rounded">
+
+            <div class="d-lg-flex">
+
+              <div class="title w-lg-25">
+                <label for="referral_code">Custom User Feed</label>
+              </div>
+
+              <div class="body w-lg-100">
+
+                <input type="text" readonly="" class="form-control copy-link" id="rss_feed" value="{{ ('/feeds/@' + v.username + '/' + v.feedkey + '/hot') | full_link }}" data-clipboard-text="{{ ('/feeds/@' + v.username + '/' + v.feedkey + '/hot') | full_link }}">
+                <form action="/settings/new_feedkey" method="post">
                   <input type="hidden" name="formkey" value="{{ v.formkey }}">
                   <input type="submit" class="btn btn-secondary text-capitalize mr-2 mb-0 mt-2" value="Generate new URL">
-              </form>
+                </form>
 
-            <div class="text-small-extra text-muted mt-3">You can change the feed by replacing "hot" with either top, or disputed.</div>
+                <div class="text-small-extra text-muted mt-3">You can change the feed by replacing "hot" with either top, or disputed.</div>
+
+              </div>
+
+            </div>
 
           </div>
 
-        </div>
-
-      </div>
-
-      <h2 class="h5">Content Filters</h2>
-
-      <form id="profile-settings" action="/settings/profile" method="post">
+          <h2 class="h5">Content Filters</h2>
 
             <div class="settings-section rounded">
-
-              <input type="hidden" name="formkey" value="{{ v.formkey }}">
 
               <div class="d-lg-flex border-bottom">
 
@@ -179,17 +243,27 @@
                 <div class="body w-lg-100">
 
                   <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="over18" name="over18"{% if v.over_18 %} checked{% endif %} onchange="document.getElementById('profile-settings').submit()">
+                    <input type="checkbox" class="custom-control-input" id="over18" name="over18"{% if v.over_18 %} checked{% endif %} onchange="post_toast('/settings/profile?over18='+document.getElementById('over18').checked);document.getElementById('filter-nsfw-option').classList.toggle('d-none')">
                     <label class="custom-control-label" for="over18"></label>
                   </div>
 
                   <span class="text-small-extra text-muted">Enable if you are 18+ and are ok with viewing NSFW content.</span>
+                  <hr>
+                  <div id="filter-nsfw-option">
+
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="filter-nsfw" name="filter_nsfw"{% if not v.filter_nsfw %} checked{% endif %} onchange="post_toast('/settings/profile?filter_nsfw='+document.getElementById('filter-nsfw').checked)">
+                      <label class="custom-control-label" for="filter-nsfw"></label>
+                    </div>
+
+                    <span class="text-small-extra text-muted">Enable if you also want to see NSFW content in All/Trending.</span>
+                  </div>
 
                 </div>
 
               </div>
 
-            <div class="d-lg-flex border-bottom">
+              <div class="d-lg-flex border-bottom">
 
                 <div class="title w-lg-25">
                   <label for="hidensfl">View NSFL Content</label>
@@ -198,11 +272,11 @@
                 <div class="body w-lg-100">
 
                   <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="hidensfl" name="show_nsfl"{% if v.show_nsfl %} checked{% endif %} onchange="document.getElementById('profile-settings').submit()">
+                    <input type="checkbox" class="custom-control-input" id="hidensfl" name="show_nsfl"{% if v.show_nsfl %} checked{% endif %} onchange="post_toast('/settings/profile?show_nsfl='+document.getElementById('hidensfl').checked)">
                     <label class="custom-control-label" for="hidensfl"></label>
                   </div>
 
-                  <span class="text-small-extra text-muted">Enable if you are 18+ and are ok with viewing NSFL content.</span>
+                  <span class="text-small-extra text-muted">Enable if you are ok with viewing NSFL content. We recommend keeping this off if you are under 18.</span>
 
                 </div>
 
@@ -217,7 +291,7 @@
                 <div class="body w-lg-100">
 
                   <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="hideoffensive" name="hide_offensive"{% if v.hide_offensive %} checked{% endif %} onchange="document.getElementById('profile-settings').submit()">
+                    <input type="checkbox" class="custom-control-input" id="hideoffensive" name="hide_offensive"{% if v.hide_offensive %} checked{% endif %} onchange="post_toast('/settings/profile?hide_offensive='+document.getElementById('hideoffensive').checked)">
                     <label class="custom-control-label" for="hideoffensive"></label>
                   </div>
 
@@ -244,14 +318,20 @@
                 <label for="bio" class="text-black w-lg-25">Bio</label>
 
                 <div class="w-lg-100">
-                  <div class="input-group mb-2">
-                    <textarea class="form-control rounded" id="bio" aria-label="With textarea"
-                    placeholder="Tell the Ruqqus community a bit about yourself."
-                    rows="3" name="bio" form="profile-settings" maxlength="280">{{ v.bio }}</textarea>
-                  </div>
 
-                  <small>Limit of 280 characters</small>
 
+                  <form id="profile-settings" action="/settings/profile" method="post">
+                    <input type="hidden" name="formkey" value="{{ v.formkey }}">
+                    <div class="input-group mb-2">
+                      <textarea class="form-control rounded" id="bio-text" aria-label="With textarea"
+                      placeholder="Tell the Ruqqus community a bit about yourself."
+                      rows="3" name="bio" form="profile-settings" maxlength="300">{{ v.bio }}</textarea>
+                    </div>
+                    <div class="d-flex">
+                      <small>Limit of 280 characters</small>
+                      <input class="btn btn-primary ml-auto" id="bioSave" type="submit" value="Save Changes">
+                    </div>
+                  </form>
                 </div>
 
               </div>
@@ -262,7 +342,7 @@
                 <div class="w-lg-100">
                   <p>Titles change the way your name is displayed across Ruqqus, allowing you to show off a site achievement.</p>
                   <div class="input-group mb2">
-                    <select class="form-control" form="profile-settings" name="title_id">
+                    <select id='title-selector' class="form-control" form="profile-settings" name="title_id" onchange="post_toast('/settings/profile?title_id='+document.getElementById('title-selector').value)">
                      <option value="0"{{ ' selected' if v.title_id==0 else '' }}>No title</option>
                      {% for entry in v.available_titles %}
                      <option value="{{ entry.id }}"{{ ' selected' if v.title_id==entry.id else '' }}>{{ entry.text }}</option>
@@ -284,7 +364,7 @@
               <div class="body w-lg-100">
 
                 <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="privateswitch" name="private"{% if v.is_private%} checked{% endif %} onchange="document.getElementById('profile-settings').submit()">
+                  <input type="checkbox" class="custom-control-input" id="privateswitch" name="private"{% if v.is_private%} checked{% endif %} onchange="post_toast('/settings/profile?private='+document.getElementById('privateswitch').checked)">
                   <label class="custom-control-label" for="privateswitch"></label>
                 </div>
 
@@ -294,22 +374,9 @@
 
             </div>
 
-            <div class="footer">
-
-              <div class="d-flex">
-
-                <input class="btn btn-primary ml-auto" id="bioSave"
-                type="submit" value="Save Changes">
-
-              </div>
-
-            </div>
-
           </div>
 
         </div>
-
-      </form>
 
     </div>
 

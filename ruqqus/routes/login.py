@@ -19,8 +19,8 @@ from secrets import token_hex
 from ruqqus.mail import *
 from ruqqus.__main__ import app, limiter
 
-valid_username_regex=re.compile("^\w{5,25}$")
-valid_password_regex=re.compile("^.{8,}$")
+valid_username_regex=re.compile("^[a-zA-Z0-9_]{5,25}$")
+valid_password_regex=re.compile("^.{8,100}$")
 #valid_email_regex=re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
 
 #login form
@@ -118,7 +118,7 @@ def login_post():
                             ):
             return redirect("/login")
         
-        if not account.validate_2fa(request.form.get("2fa_token", "")):
+        if not account.validate_2fa(request.form.get("2fa_token", "").strip()):
             hash=generate_hash(f"{account.id}+{time}+2fachallenge")
             return render_template("login_2fa.html",
                                    v=account,
@@ -145,21 +145,7 @@ def login_post():
 
 
 
-    #check self-setting badges
-    badge_types = g.db.query(BadgeDef).filter(BadgeDef.qualification_expr.isnot(None)).all()
-    for badge in badge_types:
-        if eval(badge.qualification_expr, {}, {'v':account}):
-            if not account.has_badge(badge.id):
-                new_badge=Badge(user_id=account.id,
-                                badge_id=badge.id,
-                                created_utc=int(time.time())
-                                )
-                g.db.add(new_badge)
-                
-        else:
-            bad_badge=account.has_badge(badge.id)
-            if bad_badge:
-                g.db.delete(bad_badge)
+    account.refresh_selfset_badges()
                 
 
     #check for previous page
@@ -198,6 +184,7 @@ def sign_up_get(v):
     if not agent:
         abort(403)
 
+
     #check for referral in link
     ref_id=None
     ref = request.args.get("ref",None)
@@ -210,7 +197,12 @@ def sign_up_get(v):
     if ref_user and (ref_user.id in session.get("history", [])):
         return render_template("sign_up_failed_ref.html",
                                i=random_image())
-    
+  
+    #check tor
+    #if request.headers.get("CF-IPCountry")=="T1":
+    #    return render_template("sign_up_tor.html",
+    #        i=random_image(),
+    #        ref_user=ref_user)  
     
     #Make a unique form key valid for one account creation
     now = int(time.time())
@@ -223,7 +215,8 @@ def sign_up_get(v):
     
     #formkey is a hash of session token, timestamp, and IP address
     formkey = hmac.new(key=bytes(environ.get("MASTER_KEY"), "utf-16"),
-                       msg=bytes(formkey_hashstr, "utf-16")
+                       msg=bytes(formkey_hashstr, "utf-16"),
+                       digestmod='md5'
                        ).hexdigest()
 
     redir = request.args.get("redirect",None)
@@ -238,7 +231,8 @@ def sign_up_get(v):
                            i=random_image(),
                            redirect=redir,
                            ref_user=ref_user,
-                           error=error
+                           error=error,
+                           hcaptcha=app.config["HCAPTCHA_SITEKEY"]
                            )
 
 #signup api
@@ -252,7 +246,13 @@ def sign_up_post(v):
     agent=request.headers.get("User-Agent", None)
     if not agent:
         abort(403)
-    
+
+    #check tor
+    #if request.headers.get("CF-IPCountry")=="T1":
+    #    return render_template("sign_up_tor.html",
+    #        i=random_image()
+    #    )
+
     form_timestamp = request.form.get("now", 0)
     form_formkey = request.form.get("formkey","none")
     
@@ -306,13 +306,14 @@ def sign_up_post(v):
 
     if not re.match(valid_password_regex, request.form.get("password")):
         print(f"signup fail - {username } - invalid password")
-        return new_signup("Password must be 8 characters or longer")
+        return new_signup("Password must be between 8 and 100 characters.")
 
     #if not re.match(valid_email_regex, request.form.get("email")):
     #    return new_signup("That's not a valid email.")
 
     #Check for existing acocunts
     email=request.form.get("email")
+    email=email.lstrip().rstrip()
     if not email:
         email=None
 
@@ -328,18 +329,41 @@ def sign_up_post(v):
     if any([x.is_banned for x in [g.db.query(User).filter_by(id=y).first() for y in session.get("history",[])] if x]):
         abort(403)
     
-    #success
+
+    # ip ratelimit
+    previous=g.db.query(User).filter_by(creation_ip=request.remote_addr).filter(User.created_utc>int(time.time())-60*60).first()
+    if previous:
+        abort(429)
+
+    #check bot
+    if app.config.get("HCAPTCHA_SITEKEY"):
+        token=request.form.get("h-captcha-response")
+        if not token:
+            return new_signup("Unable to verify captcha.")
+
+        data={"secret":app.config["HCAPTCHA_SECRET"],
+            "response":token,
+            "sitekey":app.config["HCAPTCHA_SITEKEY"]}
+        url="https://hcaptcha.com/siteverify"
+
+        x=requests.post(url, data=data)
+
+        if not x.json()["success"]:
+            return new_signup("Unable to verify captcha.")
+
     
     #kill tokens
     session.pop("signup_token")
 
     #get referral
-    ref_id = int(request.form.get("referred_by") or 0)
+    ref_id = int(request.form.get("referred_by",0))
 
     #upgrade user badge
-    ref_user=g.db.query(User).filter_by(id=ref_id).first()
-    if not ref_user:
-        ref_id=None
+    if ref_id:
+        ref_user=g.db.query(User).options(lazyload('*')).filter_by(id=ref_id).first()
+        if ref_user:
+            ref_user.refresh_selfset_badges()
+            g.db.add(ref_user)
 
     
     
@@ -351,7 +375,7 @@ def sign_up_post(v):
                       email=email,
                       created_utc=int(time.time()),
                       creation_ip=request.remote_addr,
-                      referred_by=ref_id,
+                      referred_by=ref_id or None,
                       tos_agreed_utc=int(time.time())
                  )
 
@@ -383,7 +407,6 @@ def sign_up_post(v):
 \n\nWelcome to Ruqqus, {new_user.username}. We're glad to have you here.
 \n\nWhile you get settled in, here a couple things we recommend for newcomers:
 - View the [quickstart guide](https://ruqqus.com/post/86i)
-- Customize your profile by [adding a custom avatar and banner](/settings/profile)
 - Personalize your front page by [joining some guilds](/browse)
 \n\nYou're welcome to say anything protected by the First Amendment here - even if you don't live in the United States.
 And since we're committed to [open-source](https://github.com/ruqqus/ruqqus) transparency, your front page (and your posted content) won't be artificially manipulated.
@@ -399,11 +422,7 @@ And since we're committed to [open-source](https://github.com/ruqqus/ruqqus) tra
 
     print(f"Signup event: @{new_user.username}")
     
-    if redir:
-        return redirect(redir)
-    else:
-        return redirect(new_user.permalink)
-    
+    return redirect("/browse?onboarding=true")
 
 @app.route("/forgot", methods=["GET"])
 def get_forgot():
@@ -418,7 +437,7 @@ def post_forgot():
     username = request.form.get("username")
     email = request.form.get("email")
 
-    user = g.db.query(User).filter(User.username.ilike(username), User.email.ilike(email), User.is_activated==True).first()
+    user = g.db.query(User).filter(User.username.ilike(username), User.email.ilike(email), User.is_deleted==False).first()
 
     if user:
         #generate url
